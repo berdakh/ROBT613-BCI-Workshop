@@ -1,0 +1,114 @@
+[
+  {
+    "slug": "00_start_here",
+    "title": "00 \u00b7 Your first EEG in MNE",
+    "goal": "Inspect sampling, voltage units, channel names and event markers; understand the Raw \u2192 Epochs \u2192 Evoked workflow before starting the P300 track.",
+    "time": "45\u201360 min",
+    "data": "No external recording"
+  },
+  {
+    "slug": "01_p300_signal_to_epochs",
+    "title": "01 \u00b7 P300 speller: from flashes to ERPs",
+    "goal": "Load a real P300 speller recording, inspect target imbalance, visualize event-related activity and extract temporal features.",
+    "time": "90\u2013120 min",
+    "data": "BNCI2014-009, subject 1, three sessions; MOABB \u2192 MNE"
+  },
+  {
+    "slug": "02_p300_classification_speller",
+    "title": "02 \u00b7 P300 classification and character selection",
+    "goal": "Train a shrinkage LDA detector on real EEG, evaluate an unseen session, and implement row/column evidence accumulation with explicitly simulated flash metadata.",
+    "time": "90\u2013120 min",
+    "data": "Real BNCI2014-009 target detection; separate labeled speller simulation"
+  },
+  {
+    "slug": "03_filtering_sampling",
+    "title": "03 \u00b7 Filtering, sampling and spectral inspection",
+    "goal": "Design and inspect EEG filters, distinguish offline and causal processing, and measure attenuation on real EEG.",
+    "time": "90\u2013120 min",
+    "data": "MNE EEGBCI subject 1, run 4"
+  },
+  {
+    "slug": "04_artifacts_noise_cancellation",
+    "title": "04 \u00b7 Artifacts, referencing and noise cancellation",
+    "goal": "Detect bad channels, compare reference choices, and understand regression and ICA through a controlled contamination experiment.",
+    "time": "90\u2013120 min",
+    "data": "EEGBCI for QC/ICA; explicit controlled contamination for regression"
+  },
+  {
+    "slug": "05_segmentation_quality_control",
+    "title": "05 \u00b7 Segmentation, baseline and quality control",
+    "goal": "Build event-locked epochs from continuous EEG, audit discarded trials and preserve run identity.",
+    "time": "90\u2013120 min",
+    "data": "MNE EEGBCI subject 1, run 4"
+  },
+  {
+    "slug": "06_motor_imagery_bandpower",
+    "title": "06 \u00b7 Motor imagery: a first decoder",
+    "goal": "Decode imagined left versus right hand movement with spectral features and leave-one-run-out validation.",
+    "time": "90\u2013120 min",
+    "data": "MNE EEGBCI subject 1, imagery runs 4/8/12"
+  },
+  {
+    "slug": "07_time_frequency_erd",
+    "title": "07 \u00b7 Time\u2013frequency analysis and ERD/ERS",
+    "goal": "Compute wavelet power, normalize it to a pre-cue interval and interpret sensorimotor desynchronization.",
+    "time": "90\u2013120 min",
+    "data": "MNE EEGBCI subject 1, run 4"
+  },
+  {
+    "slug": "08_competition_csp",
+    "title": "08 \u00b7 BCI Competition IV 2a: CSP and LDA",
+    "goal": "Use actual competition motor-imagery data, learn spatial filters inside training folds and evaluate transfer across sessions.",
+    "time": "120\u2013150 min",
+    "data": "BCI Competition IV 2a / BNCI2014-001, subject 1"
+  },
+  {
+    "slug": "09_validation_model_selection",
+    "title": "09 \u00b7 Honest validation and model selection",
+    "goal": "Compare classifiers with nested run-grouped validation, distinguish uncertainty units and diagnose leakage.",
+    "time": "90\u2013120 min",
+    "data": "EEGBCI subject 1, three independent run groups"
+  },
+  {
+    "slug": "10_ssvep_frequency_cca",
+    "title": "10 \u00b7 SSVEP: spectral peaks and canonical correlation",
+    "goal": "Decode 12 versus 15 Hz visual stimulation using spectral signal-to-noise ratio and a sinusoidal-reference CCA decoder.",
+    "time": "90\u2013120 min",
+    "data": "Native MNE SSVEP dataset, participant 02"
+  },
+  {
+    "slug": "11_auditory_visual_erp",
+    "title": "11 \u00b7 Auditory and visual evoked responses",
+    "goal": "Explore a different event-related paradigm, compare EEG responses to auditory and visual stimuli and distinguish sensory decoding from intentional BCI control.",
+    "time": "90\u2013120 min",
+    "data": "MNE sample auditory/visual EEG; large optional download"
+  },
+  {
+    "slug": "12_fnirs_motor_paradigm",
+    "title": "12 \u00b7 Beyond EEG: fNIRS motor responses",
+    "goal": "Convert optical intensity to hemoglobin changes and compare a slow hemodynamic paradigm with electrophysiological BCI.",
+    "time": "90\u2013120 min",
+    "data": "Native MNE fNIRS motor dataset, participant 1"
+  },
+  {
+    "slug": "13_neural_networks_autoencoders",
+    "title": "13 \u00b7 Neural networks and autoencoders for EEG",
+    "goal": "Train a small temporal CNN and a denoising autoencoder using training-only normalization; compare what their losses actually measure.",
+    "time": "120\u2013180 min",
+    "data": "EEGBCI subject 1, runs 4/8/12; optional PyTorch"
+  },
+  {
+    "slug": "14_online_replay",
+    "title": "14 \u00b7 From offline analysis to causal replay",
+    "goal": "Process recorded EEG in chunks with persistent filter state and verify that chunking does not change the causal result.",
+    "time": "90\u2013120 min",
+    "data": "Recorded EEGBCI stream; no live hardware"
+  },
+  {
+    "slug": "15_capstone_reproducible_bci",
+    "title": "15 \u00b7 Capstone: a reproducible BCI experiment",
+    "goal": "Complete a baseline experiment and produce an auditable result table, then extend one paradigm with a predeclared hypothesis.",
+    "time": "6\u201312 hours",
+    "data": "Competition IV 2a baseline; student-selected extension"
+  }
+]
