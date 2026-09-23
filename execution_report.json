@@ -1,0 +1,66 @@
+[
+  {
+    "notebook": "00_start_here.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "01_p300_signal_to_epochs.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "02_p300_classification_speller.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "03_filtering_sampling.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "04_artifacts_noise_cancellation.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "05_segmentation_quality_control.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "06_motor_imagery_bandpower.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "07_time_frequency_erd.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "08_competition_csp.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "09_validation_model_selection.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "10_ssvep_frequency_cca.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "11_auditory_visual_erp.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "12_fnirs_motor_paradigm.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "13_neural_networks_autoencoders.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "14_online_replay.ipynb",
+    "status": "passed"
+  },
+  {
+    "notebook": "15_capstone_reproducible_bci.ipynb",
+    "status": "passed"
+  }
+]
