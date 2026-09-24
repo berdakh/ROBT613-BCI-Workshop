@@ -1,6 +1,12 @@
 # Validation record
 
-Validated on 2026-09-24 in a local CPU Python 3.13 environment with MNE 1.13.2 and MOABB 1.7.2. All 16 notebooks were executed top-to-bottom against their declared data, with saved outputs. Real datasets were downloaded; controlled demonstrations remained explicitly labeled. Notebook 13 used PyTorch 2.14.0+cpu. The numerical integrity suite has 7 passing tests. The expanded edition adds 64 worked experiments and 96 student exercises. All 16 instructor reference functions were executed against their notebook self-checks. Student TODO functions intentionally remain incomplete and print a pending message; those are not claimed as completed student work.
+Validated on 2026-09-24 in a local CPU Python 3.13 environment with MNE 1.13.2 and MOABB 1.7.2. All 16 self-study notebooks were executed top-to-bottom against their declared datasets, including the new inline worked solutions, with saved outputs. Notebook 13 used PyTorch 2.14.0+cpu. The numerical integrity suite has 7 passing tests.
+
+The self-study revision contains 64 guided practices and 96 applied/conceptual practices with worked answers inside the notebooks. The dataset-free checker verifies the embedded introductory calculations and all 16 Practice 1 reference functions. Full notebook execution verifies the computational applied solutions as well. Conceptual answers provide reasoning, not automatically graded correctness.
+
+Student-attempt cells are intentionally blank or contain a function template returning None. The complete reference implementation follows each computational task, so top-to-bottom execution continues through its worked solution and checks. No separate answer guide is required.
+
+The 16 new flowcharts, 16 new concept figures and five additional applied-exercise plots were visually inspected. The P300 score-distribution legend was moved outside the data area, and the imagery feature histograms use shared bin edges for a comparable overlay.
 
 The Colab setup cells and public notebook links are provided; **execution inside Google Colab itself was not tested**. Colab may require a runtime restart after installing numerical dependencies. Upstream host availability is outside the course’s control.
 

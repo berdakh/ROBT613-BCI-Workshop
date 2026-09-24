@@ -38,10 +38,14 @@ Homework 1: units, reference, event mapping and ERP interpretation. Homework 2: 
 
 The exercises are formative prompts, not answer keys to an existing graded assignment. Students should explain their own choices and report limitations rather than chase a target score.
 
-## Teaching edition and exercise assessment
+## Teach from the notebook itself
 
-Each notebook has four numerical worked experiments and six end-of-lesson tasks. Exercise 1 has starter code with a small self-check; exercises 2–5 ask for data inspection, an ablation, a design decision or an evaluation; exercise 6 is an exit ticket or short presentation. A pending self-check is expected in the distributed student version.
+The self-study revision places every exercise, hint and worked answer inside its notebook. The sequence is **try → hint → worked solution → interpretation**. Ask students to stop before the solution heading; in a live class, discuss their predictions before running the reference implementation. In independent study, students can complete the same cycle without an instructor or an external answer file.
 
-Use the [separate reference guide](instructor-solutions.md) after students attempt the work. It provides reference functions and lesson-specific assessment criteria, without inventing required accuracy values for data-dependent investigations. Suggested formative rubric: 25% correct method and units, 25% reproducible evidence, 25% interpretation, 25% awareness of assumptions and limits.
+Each notebook includes a pipeline flowchart, a notation/hand-calculation section, an additional concept figure, four guided numerical practices and six applied/conceptual practices. Applied tasks are interleaved with the real-data stages. Code cells have been split at complete Python statements and logical boundaries; loops stay intact so they remain executable. Comments and adjacent prose explain their scientific role.
+
+The embedded figures are reproducible Matplotlib outputs, not remote images. The flowchart drawing code is tagged as a diagram and may be collapsed while teaching. Students should still be able to explain each box and the quantities carried along its arrows.
+
+Use the [optional answer index](instructor-solutions.md) only for navigation. Assess reasoning and reproducible evidence, rather than a predetermined target accuracy. Suggested rubric: 25% correct method and units, 25% reproducible evidence, 25% interpretation, and 25% awareness of assumptions and limits.
 
 The course excludes EEG source imaging, anatomical localization and forward/inverse models. Sensor topographies for ICA/CSP are retained to interpret preprocessing and decoding, with that distinction stated explicitly.
