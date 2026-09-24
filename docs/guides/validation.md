@@ -1,10 +1,10 @@
 # Validation record
 
-Validated on 2026-09-23 in a local CPU Python 3.13 environment with MNE 1.13.2 and MOABB 1.7.2. All 16 notebooks were executed top-to-bottom against their declared data, with saved outputs. Real datasets were downloaded; controlled demonstrations remained explicitly labeled. Notebook 13 used PyTorch 2.14.0+cpu. The numerical integrity suite has 7 passing tests.
+Validated on 2026-09-24 in a local CPU Python 3.13 environment with MNE 1.13.2 and MOABB 1.7.2. All 16 notebooks were executed top-to-bottom against their declared data, with saved outputs. Real datasets were downloaded; controlled demonstrations remained explicitly labeled. Notebook 13 used PyTorch 2.14.0+cpu. The numerical integrity suite has 7 passing tests. The expanded edition adds 64 worked experiments and 96 student exercises. All 16 instructor reference functions were executed against their notebook self-checks. Student TODO functions intentionally remain incomplete and print a pending message; those are not claimed as completed student work.
 
 The Colab setup cells and public notebook links are provided; **execution inside Google Colab itself was not tested**. Colab may require a runtime restart after installing numerical dependencies. Upstream host availability is outside the course’s control.
 
-Saved figures were visually reviewed for labels, units, clipping and readability. The CSP pattern plot uses the public topomap API to avoid a multiclass plotting failure in MNE’s legacy CSP plotting convenience method. The competition notebook was rerun after its first download was incomplete. A rejection-threshold example was revised after inspection showed its original threshold removed every trial.
+New worked-example figures and the saved real-data figures were visually reviewed for labels, units, clipping and readability. The CSP pattern plot uses the public topomap API to avoid a multiclass plotting failure in MNE’s legacy CSP plotting convenience method. The competition notebook was rerun after its first download was incomplete. A rejection-threshold example was revised after inspection showed its original threshold removed every trial.
 
 ## Reproduce
 
@@ -12,6 +12,7 @@ Saved figures were visually reviewed for labels, units, clipping and readability
 python -m pip install -r requirements.txt -r requirements-dev.txt
 python scripts/check_notebooks.py
 python -m pytest -q
+python scripts/check_exercise_answers.py
 python scripts/execute_notebooks.py
 ```
 

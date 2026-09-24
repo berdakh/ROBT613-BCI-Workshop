@@ -21,7 +21,7 @@ The supplied ROBT613 syllabus emphasizes physiology, ERPs, MNE loading and segme
 
 ## Prerequisites and pacing
 
-Students need Python arrays, plotting, basic probability, matrix multiplication and train/test concepts. Teach the equations beside the code; do not require prior familiarity with MNE. Pair each lab with a short paper discussion. A typical 2-hour lab uses 15 minutes of context, 60 minutes of execution/inspection, 30 minutes of exercises and 15 minutes of discussion. Dataset downloads should happen before class.
+Students need Python arrays, plotting, basic probability, matrix multiplication and train/test concepts. Teach the equations beside the code; do not require prior familiarity with MNE. Pair each lab with a short paper discussion. Use 15 minutes of framing, 25–40 minutes of worked experiments, 30–45 minutes of real-data inspection, then 30–60 minutes of independent practice. Split a lesson across meetings when students need more time. The notebook is the lecture material: pause before each worked example for a prediction, then ask students to explain the output before proceeding. Dataset downloads should happen before class.
 
 ## Assessments
 
@@ -37,3 +37,11 @@ Homework 1: units, reference, event mapping and ERP interpretation. Homework 2: 
 - Can a zero-phase offline model be called real-time? No; preprocessing and temporal support must be causal and latency measured.
 
 The exercises are formative prompts, not answer keys to an existing graded assignment. Students should explain their own choices and report limitations rather than chase a target score.
+
+## Teaching edition and exercise assessment
+
+Each notebook has four numerical worked experiments and six end-of-lesson tasks. Exercise 1 has starter code with a small self-check; exercises 2–5 ask for data inspection, an ablation, a design decision or an evaluation; exercise 6 is an exit ticket or short presentation. A pending self-check is expected in the distributed student version.
+
+Use the [separate reference guide](instructor-solutions.md) after students attempt the work. It provides reference functions and lesson-specific assessment criteria, without inventing required accuracy values for data-dependent investigations. Suggested formative rubric: 25% correct method and units, 25% reproducible evidence, 25% interpretation, 25% awareness of assumptions and limits.
+
+The course excludes EEG source imaging, anatomical localization and forward/inverse models. Sensor topographies for ICA/CSP are retained to interpret preprocessing and decoding, with that distinction stated explicitly.
