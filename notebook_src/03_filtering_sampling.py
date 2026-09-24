@@ -11,6 +11,21 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## How to study this notebook
+#
+# This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
+#
+# 1. Read the question and calculate a small example on paper.
+# 2. Write your prediction before running the next code cell.
+# 3. Try the practice task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 5. Change one parameter and explain what the result means.
+#
+# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+#
+# **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
+
+# %% [markdown]
 # ## The question for today
 #
 # A colleague says, “I filtered the EEG at 30 Hz.” You cannot reproduce that statement yet: was it a low-pass or bandpass, what was the transition width, and did the filter use future samples? This lesson turns an informal preprocessing statement into an inspectable signal-processing method.
@@ -22,7 +37,7 @@
 # - Demonstrate aliasing and explain anti-alias filtering before resampling.
 # - Choose different passbands for ERP and sensorimotor-power tasks.
 #
-# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The worked examples use small controlled arrays; the later walkthrough uses the dataset stated above. End-of-lesson exercises contain editable workspaces. A pending exercise message is expected until you complete its function.
+# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The first worked examples use controlled arrays; the later walkthrough and applied practice use the dataset stated above. Practice workspaces, hints and worked solutions are placed beside the relevant methods. Complete your attempt before continuing to the reference solution.
 
 # %% [markdown]
 # ## Setup
@@ -60,6 +75,49 @@ print({p: metadata.version(p) for p in ['mne','moabb','numpy','scipy','scikit-le
 print('Dataset cache:', DATA_ROOT)
 
 # %% [markdown]
+# ## Visual route through the lesson
+#
+# Follow the arrows before running the analysis. For each box, say what the input represents, what changes, and what must be preserved.
+
+# %%
+# Drawing code for the lesson map; no analysis data are transformed here.
+from matplotlib.patches import FancyBboxPatch
+map_steps=['Continuous EEG\ninspect sampling', 'Choose task band\nERP or imagery', 'Design filter\ngain and phase', 'Inspect before / after\nsame PSD settings', 'Resample safely\nanti-alias first']
+fig,map_ax=plt.subplots(figsize=(12,3.1),constrained_layout=True)
+map_ax.set(xlim=(-.1,12),ylim=(-.3,2.4));map_ax.axis('off')
+for map_i,map_label in enumerate(map_steps):
+    map_x=map_i*2.4
+    map_ax.add_patch(FancyBboxPatch((map_x,.45),2.05,1.1,
+        boxstyle='round,pad=0.08',facecolor='#edf3f7',edgecolor='#35688a',linewidth=1.5))
+    map_ax.text(map_x+1.025,1.02,map_label,ha='center',va='center',fontsize=10)
+    map_ax.text(map_x+1.025,1.83,str(map_i+1),ha='center',weight='bold',color='#35688a')
+    if map_i<4:map_ax.annotate('',xy=(map_x+2.3,1),xytext=(map_x+2.13,1),arrowprops=dict(arrowstyle='->',lw=1.5))
+map_ax.text(5.9,-.08,'Read left to right. Keep units, observation identities and evaluation boundaries attached to the data.',ha='center',fontsize=10)
+map_ax.set_title('Lesson 03 · from measurement to an interpretable result',fontsize=14,pad=12)
+plt.show()
+
+# %% [markdown]
+# **Read the map:** the arrows represent processing order, not permission to fit on all observations. When a stage learns parameters, keep evaluation data outside that fit. The map is also available as text: Continuous EEG: inspect sampling → Choose task band: ERP or imagery → Design filter: gain and phase → Inspect before / after: same PSD settings → Resample safely: anti-alias first.
+
+# %% [markdown]
+# ## Symbols and a calculation by hand
+#
+# $h[k]$: FIR coefficients; $L$: tap count; $f_s$: sampling rate; $H(f)$: complex frequency response.
+#
+# ### Derive the operation before calling the library
+#
+# Convolution shifts and weights samples: $y[n]=\sum_{k=0}^{L-1}h[k]x[n-k]$. For $h=[1/3,1/3,1/3]$ and an impulse of amplitude 3, three consecutive outputs equal 1. The output is spread in time even though the total coefficient sum is one.
+#
+# A symmetric causal FIR of odd length $L$ has group delay $(L-1)/2$ samples. For 129 taps at 160 Hz, delay is $64/160=0.4$ s. Frequency-response amplitude is plotted with $20\log_{10}|H|$; a power ratio uses $10\log_{10}(P_2/P_1)$. The factor differs because power is proportional to squared amplitude.
+
+# %% [markdown]
+# ### Your paper calculation
+#
+# Rewrite one equation with the numerical example above. Name the input units and output units, and identify the axis being reduced or transformed.
+#
+# **My calculation:** _write your intermediate steps here before continuing._
+
+# %% [markdown]
 # ### Filtering is a transformation with consequences
 #
 # A filter is not a general “clean EEG” button. It changes amplitude and sometimes phase as a function of frequency. For a sinusoidal input at frequency $f$, a linear time-invariant filter scales its amplitude by $|H(f)|$ and shifts phase by $\arg H(f)$. When a transient contains many frequencies, those changes alter its shape. This is why ERP latency and morphology require careful filter choices.
@@ -79,11 +137,40 @@ print('Dataset cache:', DATA_ROOT)
 # Record filter family, passband, transition bands, phase mode, sampling rate, treatment of boundaries and whether filtering preceded epoching. For separate runs, maintain discontinuity annotations or process each run independently. For a temporal train/test split within one run, account for filter support around the boundary. A pipeline can leak samples even when the filter never uses class labels.
 
 # %% [markdown]
-# ### Worked example · convolution by hand
+# ## Visual intuition · Watch convolution build an output
+#
+# **Try it:** At output index 3, which three input samples are included? Calculate their weighted sum before reading the bars.
+
+# %%
+vis_x=np.array([0.,0.,3.,0.,0.,0.]);vis_h=np.ones(3)/3
+vis_y=np.convolve(vis_x,vis_h)
+fig,axes=plt.subplots(2,1,figsize=(9,5),constrained_layout=True)
+axes[0].stem(np.arange(len(vis_x)),vis_x,basefmt='k-')
+axes[0].axvspan(1,3,color='#e8bb65',alpha=.3)
+axes[0].set(xlim=(-.5,7.5),ylabel='Input amplitude',title='SIMULATION · a three-tap moving average')
+axes[0].annotate('At n=3: x[3], x[2], x[1]',xy=(2,3),xytext=(3.4,2.4),arrowprops=dict(arrowstyle='->'))
+axes[1].stem(np.arange(len(vis_y)),vis_y,basefmt='k-')
+axes[1].set(xlim=(-.5,7.5),xlabel='Sample index',ylabel='Output amplitude',title='The impulse spreads across three output samples')
+plt.show()
+
+# %% [markdown]
+# ### Worked interpretation
+#
+# At n=3 the sum is (0+3+0)/3=1. The same impulse contributes at n=2, 3 and 4. A filter changes temporal shape as well as frequency content; the drawing is a numerical convolution example, not an ERP.
+
+# %% [markdown]
+# ## Guided practice 1 · convolution by hand
 #
 # A three-sample moving average uses weights [1/3, 1/3, 1/3]. For the sequence [0, 0, 3, 0, 0], predict the full convolution. The response to a single impulse reveals the filter itself.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_input=np.array([0.,0.,3.,0.,0.])
@@ -93,16 +180,25 @@ print('Input:',demo_input,'\nOutput:',demo_output)
 assert np.allclose(demo_output,[0,0,1,1,1,0,0])
 
 # %% [markdown]
-# **Read the result.** The energy of the sharp event spreads across neighboring samples. Smoothing is a change in temporal resolution, not just removal of noise.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# The energy of the sharp event spreads across neighboring samples. Smoothing is a change in temporal resolution, not just removal of noise.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Worked example · expose aliasing
+# ## Guided practice 2 · expose aliasing
 #
 # At a sample rate of 100 Hz, a cosine at 70 Hz and one at 30 Hz produce the same samples. Compute the two sequences and compare. Cosine avoids the sign reversal that appears in the analogous sine example.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_fs=100
@@ -113,16 +209,25 @@ print('Maximum difference:',np.max(np.abs(high-aliased)))
 assert np.allclose(high,aliased,atol=1e-12)
 
 # %% [markdown]
-# **Read the result.** No downstream classifier can determine which original analog cosine generated these samples without additional information. Acquisition anti-alias filtering is essential.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# No downstream classifier can determine which original analog cosine generated these samples without additional information. Acquisition anti-alias filtering is essential.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Guided experiment · FIR length versus delay
+# ## Guided practice 3 · FIR length versus delay
 #
 # Hold the passband fixed and change the number of taps. Use the same axes. Calculate the delay for a symmetric causal FIR and compare the transition shapes.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 fig,ax=plt.subplots()
@@ -135,16 +240,25 @@ ax.set(xlim=(0,50),ylim=(-80,5),xlabel='Frequency (Hz)',ylabel='Gain (dB)',title
 ax.legend();plt.show()
 
 # %% [markdown]
-# **Read the result.** A longer filter improves frequency selectivity while spreading information over a longer interval. Decide whether the task can tolerate that support.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# A longer filter improves frequency selectivity while spreading information over a longer interval. Decide whether the task can tolerate that support.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Guided experiment · downsampling with and without anti-alias protection
+# ## Guided practice 4 · downsampling with and without anti-alias protection
 #
 # Mix 10 Hz and 70 Hz activity at 200 Hz, then reduce to 100 Hz. Compare direct slicing with a resampling method that includes anti-alias filtering.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_fs=200;demo_t=np.arange(2000)/demo_fs
@@ -159,9 +273,44 @@ ax.set(xlabel='Frequency (Hz)',ylabel='PSD (arbitrary units²/Hz)',title='SIMULA
 ax.legend();plt.show()
 
 # %% [markdown]
-# **Read the result.** The extra lower-frequency peak after naive slicing is an artifact of resampling, not a new physiological rhythm.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# The extra lower-frequency peak after naive slicing is an artifact of resampling, not a new physiological rhythm.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
+
+# %% [markdown]
+# ## Practice 1 · Delay calculation
+#
+# Implement `fir_delay`. Check that doubling the sampling rate halves delay in seconds for the same tap count.
+#
+# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+
+# %%
+def fir_delay(n_taps, sampling_rate):
+    # TODO: delay in seconds for a symmetric causal FIR.
+    return None
+
+# %% [markdown]
+# ### Hint
+#
+# Use the equation above and keep the trial/channel axes intact unless the requested output removes them. Test the smallest example by hand first.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Compare this implementation with your attempt. The next cell checks the reference answer on a concrete numerical case.
+
+# %%
+def fir_delay(n_taps,sampling_rate):
+    return (n_taps-1)/(2*sampling_rate)
+
+# %%
+answer=fir_delay(129,160)
+if answer is not None:
+    assert np.isclose(answer,.4); print('Delay check passed.')
+else:
+    print('Exercise pending: implement fir_delay.')
 
 # %% [markdown]
 # ## Apply the ideas to the complete pipeline
@@ -183,13 +332,37 @@ ax.legend();plt.show()
 #
 # Read one continuous imagery run and standardize channel names so C3 refers to the expected sensor. Keep the original Raw object as the baseline for comparison; filtering a copy makes before/after inspection reproducible.
 
+# %% [markdown]
+# ### Step 1.1 · trace the next operation
+#
+# **1.** Import the named tools used in this step.
+#
+# **2.** Fetch only the specified participant/run files; the cache prevents repeat downloads.
+#
+# **3.** Read continuous voltage samples and metadata into an MNE Raw object.
+#
+# **4.** Standardize dataset channel names so later sensor-name selection is meaningful.
+#
+# **5.** Attach sensor coordinates; this does not perform anatomical source localization.
+#
+# **6.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+#
+# **7.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
 # %%
+# Import the named tools used in this step.
 from mne.datasets import eegbci
+# Fetch only the specified participant/run files; the cache prevents repeat downloads.
 files = eegbci.load_data(1, [4], path=DATA_ROOT, update_path=False)
+# Read continuous voltage samples and metadata into an MNE Raw object.
 raw = mne.io.read_raw_edf(files[0], preload=True, verbose=False)
+# Standardize dataset channel names so later sensor-name selection is meaningful.
 eegbci.standardize(raw)
+# Attach sensor coordinates; this does not perform anatomical source localization.
 raw.set_montage('standard_1005')
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print(raw)
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print('Channel types:', set(raw.get_channel_types()))
 
 # %% [markdown]
@@ -200,20 +373,81 @@ print('Channel types:', set(raw.get_channel_types()))
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 2 · Calculate the Nyquist limit and sample interval
+#
+# **Try it:** Read the real sampling rate. Compute the highest representable frequency and milliseconds per sample.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %%
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# Nyquist = fs/2; one sample interval = 1/fs.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
+
+# %%
+lab_fs=raw.info['sfreq']
+print('Sampling rate:',lab_fs,'Hz')
+print('Nyquist:',lab_fs/2,'Hz')
+print('Sample interval:',1000/lab_fs,'ms')
+
+# %% [markdown]
+# ### Interpret and check
+#
+# Every digital cutoff must be compatible with the sampling rate, including its transition band. A requested 100 Hz notch cannot be represented by a recording whose Nyquist frequency is only 80 Hz.
+
+# %% [markdown]
 # ## Compare spectra
 # Use the same PSD parameters before and after filtering. Decibels below are referenced to one V²/Hz.
 #
 # Use identical Welch settings and the same sensor for both PSD curves. A band-pass filter should attenuate out-of-band energy without creating a new physiological interpretation for the remaining peaks. The logarithmic display uses a consistent reference.
 
+# %% [markdown]
+# ### Step 2.1 · trace the next operation
+#
+# **1.** Apply the declared frequency filter; copy first when the original must be preserved.
+#
+# **2.** Store this intermediate result so the next operation can be traced and inspected.
+
 # %%
-filtered = raw.copy().filter(8,30)
+# Apply the declared frequency filter; copy first when the original must be preserved.
+filtered = raw.copy().filter(8, 30)
+# Store this intermediate result so the next operation can be traced and inspected.
 channel = raw.ch_names.index('C3')
+
+# %% [markdown]
+# ### Step 2.2 · trace the next operation
+#
+# **1.** Create axes; plotting changes the display, not the analyzed data.
+#
+# **2.** Plot each named condition on comparable axes without changing its observations.
+#
+# **3.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **4.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **5.** Render the completed figure and inspect labels, units and the comparison.
+
+# %%
+# Create axes; plotting changes the display, not the analyzed data.
 fig, ax = plt.subplots()
-for obj,name in [(raw,'Before'),(filtered,'8–30 Hz')]:
-    f,p = signal.welch(obj.get_data()[channel], fs=obj.info['sfreq'], nperseg=1024)
-    ax.plot(f,10*np.log10(np.maximum(p,1e-30)),label=name)
-ax.set(xlim=(0,75),xlabel='Frequency (Hz)',ylabel='PSD (dB re 1 V²/Hz)',title='Subject 1, run 4, C3')
-ax.legend(); plt.show()
+# Plot each named condition on comparable axes without changing its observations.
+for obj, name in [(raw, 'Before'), (filtered, '8–30 Hz')]:
+    f, p = signal.welch(obj.get_data()[channel], fs=obj.info['sfreq'], nperseg=1024)
+    ax.plot(f, 10 * np.log10(np.maximum(p, 1e-30)), label=name)
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.set(xlim=(0, 75), xlabel='Frequency (Hz)', ylabel='PSD (dB re 1 V²/Hz)', title='Subject 1, run 4, C3')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.legend()
+# Render the completed figure and inspect labels, units and the comparison.
+plt.show()
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -223,22 +457,92 @@ ax.legend(); plt.show()
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 3 · Decide whether to add a notch
+#
+# **Try it:** Does every EEG pipeline need a 50 or 60 Hz notch? Use the displayed spectra and chosen passband to explain.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %% [markdown]
+# **My answer:** _write a short explanation before continuing._
+
+# %% [markdown]
+# ### Hint
+#
+# An operation needs a signal-processing purpose, not just a place in a checklist.
+
+# %% [markdown]
+# ### Worked solution
+#
+# No. Inspect whether line-frequency interference is present and whether the existing low-pass already attenuates it sufficiently. A notch can be useful when the analysis retains frequencies near mains, but it can also remove wanted information. Report evidence and inspect before/after spectra.
+
+# %% [markdown]
 # ## Inspect FIR and causal delay
 # An impulse exposes timing that a smooth waveform can hide.
 #
 # An impulse response and a frequency response describe the same linear filter in different domains. The symmetric FIR has a calculable causal delay; the offline zero-phase operation used by MNE handles phase differently. Resampling changes the time grid and requires anti-alias protection.
 
+# %% [markdown]
+# ### Step 3.1 · trace the next operation
+#
+# **1.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **2.** Design finite impulse-response coefficients from the requested band and sample rate.
+#
+# **3.** Evaluate the filter’s complex frequency response, not the data spectrum.
+
 # %%
+# Store this intermediate result so the next operation can be traced and inspected.
 fs = raw.info['sfreq']
-h = signal.firwin(129,[8,30],pass_zero=False,fs=fs)
-f,H = signal.freqz(h,fs=fs)
-fig,axes = plt.subplots(1,2,figsize=(11,4))
-axes[0].plot(f,20*np.log10(np.maximum(abs(H),1e-8)))
-axes[0].set(xlim=(0,70),ylim=(-90,5),xlabel='Frequency (Hz)',ylabel='Gain (dB)',title='129-tap FIR')
-axes[1].plot(np.arange(len(h))/fs,h)
-axes[1].set(xlabel='Time (s)',ylabel='Impulse response',title=f'Causal delay: {(len(h)-1)/(2*fs):.3f} s')
-plt.tight_layout(); plt.show()
+# Design finite impulse-response coefficients from the requested band and sample rate.
+h = signal.firwin(129, [8, 30], pass_zero=False, fs=fs)
+# Evaluate the filter’s complex frequency response, not the data spectrum.
+f, H = signal.freqz(h, fs=fs)
+
+# %% [markdown]
+# ### Step 3.2 · trace the next operation
+#
+# **1.** Create axes; plotting changes the display, not the analyzed data.
+#
+# **2.** Use a log transform on positive power; a small floor avoids taking log of zero.
+#
+# **3.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **4.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **5.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **6.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **7.** Render the completed figure and inspect labels, units and the comparison.
+
+# %%
+# Create axes; plotting changes the display, not the analyzed data.
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+# Use a log transform on positive power; a small floor avoids taking log of zero.
+axes[0].plot(f, 20 * np.log10(np.maximum(abs(H), 1e-08)))
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+axes[0].set(xlim=(0, 70), ylim=(-90, 5), xlabel='Frequency (Hz)', ylabel='Gain (dB)', title='129-tap FIR')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+axes[1].plot(np.arange(len(h)) / fs, h)
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+axes[1].set(xlabel='Time (s)', ylabel='Impulse response', title=f'Causal delay: {(len(h) - 1) / (2 * fs):.3f} s')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+plt.tight_layout()
+# Render the completed figure and inspect labels, units and the comparison.
+plt.show()
+
+# %% [markdown]
+# ### Step 3.3 · trace the next operation
+#
+# **1.** Change the sampling grid with anti-alias protection and updated metadata.
+#
+# **2.** Check a required invariant now so a silent alignment or numerical error cannot propagate.
+
+# %%
+# Change the sampling grid with anti-alias protection and updated metadata.
 resampled = filtered.copy().resample(100)
+# Check a required invariant now so a silent alignment or numerical error cannot propagate.
 assert resampled.info['sfreq'] == 100
 
 # %% [markdown]
@@ -249,111 +553,85 @@ assert resampled.info['sfreq'] == 100
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
-# ## Independent practice
+# ## Practice 4 · Measure the filter’s causal delay
 #
-# Work through the tasks in order. Exercise 1 includes a small implementation check; passing it verifies the stated example, not every possible input. For the investigations, save a labeled figure or table and a short explanation. Use copies of data objects when changing preprocessing, and preserve any held-out evaluation partition.
+# **Try it:** Locate the symmetry center of the 129-tap FIR and convert it to seconds. Repeat the calculation for 65 taps without changing the sample rate.
 #
-# **Submission:** your completed notebook, the requested outputs, and a brief exit-ticket response. The notebook runs before exercises are completed; “pending” means your work is still required.
-
-# %% [markdown]
-# ### Exercise 1 · Delay calculation
-#
-# Implement `fir_delay`. Check that doubling the sampling rate halves delay in seconds for the same tap count.
+# **My reasoning / hand calculation:** _write here._
 
 # %%
-def fir_delay(n_taps, sampling_rate):
-    # TODO: delay in seconds for a symmetric causal FIR.
-    return None
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# A symmetric odd-length FIR centers at (L−1)/2.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
 
 # %%
-answer=fir_delay(129,160)
-if answer is not None:
-    assert np.isclose(answer,.4); print('Delay check passed.')
-else:
-    print('Exercise pending: implement fir_delay.')
+lab_lengths=np.array([65,129])
+lab_delays=(lab_lengths-1)/(2*fs)
+print(pd.DataFrame({'taps':lab_lengths,'delay_samples':(lab_lengths-1)/2,'delay_seconds':lab_delays}))
+assert np.allclose(h,h[::-1])
 
 # %% [markdown]
-# **Your response:**
+# ### Interpret and check
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# The 129-tap filter has twice the delay of the 65-tap filter at the same rate. This delay describes causal application of that symmetric FIR, not the final timing of MNE’s offline zero-phase filtering operation.
 
 # %% [markdown]
-# ### Exercise 2 · Filter report
+# ## Practice 5 · Explain why slicing is not resampling
 #
-# Write a complete report for the real-data filter used in this notebook. Locate MNE’s filter design output and identify details absent from “8–30 Hz”.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# **Try it:** A student writes raw_data[:, ::2]. What extra operation is needed before treating that as downsampled EEG?
+#
+# **My reasoning / hand calculation:** _write here._
 
 # %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# **My answer:** _write a short explanation before continuing._
 
 # %% [markdown]
-# ### Exercise 3 · Task-specific design
+# ### Hint
 #
-# Design one candidate P300 filter and one motor-imagery filter. Plot their frequency responses and justify the bands in terms of the measured phenomena.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# Signals above the new Nyquist limit fold into lower frequencies.
 
 # %% [markdown]
-# **Your response:**
+# ### Worked solution
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# Apply appropriate anti-alias filtering before decimation, or use a resampling function that performs it. Also update sampling metadata and event timing consistently. Direct slicing of a 70 Hz component from 200 to 100 Hz creates an apparent 30 Hz component.
 
 # %% [markdown]
-# ### Exercise 4 · Notch decision
+# ## Practice 6 · explain the complete method
 #
-# Inspect line-frequency power before adding a notch. Explain whether a notch remains necessary after your low-pass and what evidence would change your choice.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+#
+# **My explanation:** _write here._
 
 # %% [markdown]
-# **Your response:**
+# ### Worked answer · compare your reasoning
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# A filter’s band, transition width, length, phase and boundary behavior all matter. Causal delay, zero-phase future-sample use and aliasing are separate issues. Safe resampling combines signal processing with consistent timing metadata.
 
 # %% [markdown]
-# ### Exercise 5 · Boundary experiment
+# ## If your result is different
 #
-# Filter a short impulse-containing epoch alone and inside a longer padded signal. Compare the retained interior; explain the edge differences.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# If a cutoff is rejected, compare it and its transition band with Nyquist. If an edge rings, inspect impulse support, padding and interval length before shortening the filter blindly.
+#
+# If a dataset download fails, read the error and retry when the public host is reachable; do not silently replace real data with simulated values. If a notebook cell refers to an undefined variable, restart the kernel and run the preceding cells in order. Numerical scores can vary slightly with library versions; record versions and compare the protocol before concluding that a method changed.
 
 # %% [markdown]
-# **Your response:**
+# ## Can you now do this independently?
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
-
-# %% [markdown]
-# ### Exercise 6 · Exit ticket
+# - Explain each arrow in the lesson map and the units at its boundaries.
+# - Reproduce the hand calculation and point to its corresponding code.
+# - Interpret the figures without turning a descriptive pattern into an unsupported causal claim.
+# - Complete a practice task before reading its worked solution.
+# - State which choices were fixed and which were learned from calibration data.
 #
-# Explain to a teammate why zero-phase offline filtering cannot be copied unchanged into a real-time decoder. Include future samples and delay in the answer.
-
-# %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# If one item is unclear, return to the associated figure or practice section before the next lesson.
 
 # %% [markdown]
 # ## Next steps and sources

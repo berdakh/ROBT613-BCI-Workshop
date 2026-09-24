@@ -11,6 +11,21 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## How to study this notebook
+#
+# This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
+#
+# 1. Read the question and calculate a small example on paper.
+# 2. Write your prediction before running the next code cell.
+# 3. Try the practice task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 5. Change one parameter and explain what the result means.
+#
+# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+#
+# **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
+
+# %% [markdown]
 # ## The question for today
 #
 # A classifier reports excellent accuracy, but many more trials were discarded from one class than the other. We trace each trial from its event marker through epoch boundaries, baseline correction and quality control before trusting its label.
@@ -22,7 +37,7 @@
 # - Audit dropped trials by class and run.
 # - Recognize overlap and artifact rejection as possible sources of evaluation bias.
 #
-# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The worked examples use small controlled arrays; the later walkthrough uses the dataset stated above. End-of-lesson exercises contain editable workspaces. A pending exercise message is expected until you complete its function.
+# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The first worked examples use controlled arrays; the later walkthrough and applied practice use the dataset stated above. Practice workspaces, hints and worked solutions are placed beside the relevant methods. Complete your attempt before continuing to the reference solution.
 
 # %% [markdown]
 # ## Setup
@@ -60,6 +75,49 @@ print({p: metadata.version(p) for p in ['mne','moabb','numpy','scipy','scikit-le
 print('Dataset cache:', DATA_ROOT)
 
 # %% [markdown]
+# ## Visual route through the lesson
+#
+# Follow the arrows before running the analysis. For each box, say what the input represents, what changes, and what must be preserved.
+
+# %%
+# Drawing code for the lesson map; no analysis data are transformed here.
+from matplotlib.patches import FancyBboxPatch
+map_steps=['Event codebook\nverify task meaning', 'Epoch boundaries\nevent ± time', 'Baseline choice\nsubtract interval mean', 'Quality decisions\nreject on a copy', 'Retention audit\nclass + drop reasons']
+fig,map_ax=plt.subplots(figsize=(12,3.1),constrained_layout=True)
+map_ax.set(xlim=(-.1,12),ylim=(-.3,2.4));map_ax.axis('off')
+for map_i,map_label in enumerate(map_steps):
+    map_x=map_i*2.4
+    map_ax.add_patch(FancyBboxPatch((map_x,.45),2.05,1.1,
+        boxstyle='round,pad=0.08',facecolor='#edf3f7',edgecolor='#35688a',linewidth=1.5))
+    map_ax.text(map_x+1.025,1.02,map_label,ha='center',va='center',fontsize=10)
+    map_ax.text(map_x+1.025,1.83,str(map_i+1),ha='center',weight='bold',color='#35688a')
+    if map_i<4:map_ax.annotate('',xy=(map_x+2.3,1),xytext=(map_x+2.13,1),arrowprops=dict(arrowstyle='->',lw=1.5))
+map_ax.text(5.9,-.08,'Read left to right. Keep units, observation identities and evaluation boundaries attached to the data.',ha='center',fontsize=10)
+map_ax.set_title('Lesson 05 · from measurement to an interpretable result',fontsize=14,pad=12)
+plt.show()
+
+# %% [markdown]
+# **Read the map:** the arrows represent processing order, not permission to fit on all observations. When a stage learns parameters, keep evaluation data outside that fit. The map is also available as text: Event codebook: verify task meaning → Epoch boundaries: event ± time → Baseline choice: subtract interval mean → Quality decisions: reject on a copy → Retention audit: class + drop reasons.
+
+# %% [markdown]
+# ## Symbols and a calculation by hand
+#
+# $s_0$: event sample; $[a,b]$: relative epoch interval; $B$: baseline sample mask; $q$: peak-to-peak threshold.
+#
+# ### Derive the operation before calling the library
+#
+# Epoch sample indices are approximately $s_0+\operatorname{round}(af_s)$ through $s_0+\operatorname{round}(bf_s)$, inclusive. At 100 Hz around sample 1000, $[-0.2,0.8]$ maps to 980 through 1080, giving 101 samples.
+#
+# Baseline subtraction is $x'(t)=x(t)-\bar x_B$. For $x=[5,7,9,8,6]$ and baseline first two samples, $\bar x_B=6$ and $x'=[-1,1,3,2,0]$. The original and corrected peak-to-peak ranges are both 4 because $(\max x-b)-(\min x-b)=\max x-\min x$. Baseline correction cannot rescue a trial from a peak-to-peak criterion merely by changing its offset.
+
+# %% [markdown]
+# ### Your paper calculation
+#
+# Rewrite one equation with the numerical example above. Name the input units and output units, and identify the axis being reduced or transformed.
+#
+# **My calculation:** _write your intermediate steps here before continuing._
+
+# %% [markdown]
 # ### Events are the link between measurement and task
 #
 # An event array has three columns: sample index, previous event value and event code. The code is a lookup key, not a physiological measurement. Its interpretation comes from the dataset protocol. The same annotation name can mean different tasks in different runs; this is why the motor-imagery notebooks select documented run numbers explicitly.
@@ -91,11 +149,42 @@ print('Dataset cache:', DATA_ROOT)
 # Keep the unmodified epoch collection, the selection indices and the drop log. If rejection differs strongly by class or run, ask whether the task itself caused movement or whether the sensor quality changed over time. More data cleaning can make the surviving sample less representative of future use.
 
 # %% [markdown]
-# ### Worked example · sample boundaries
+# ## Visual intuition · Draw epoch boundaries on a continuous recording
+#
+# **Try it:** Find the pre-event baseline and the post-event interval. Which samples are shared by neighboring epochs?
+
+# %%
+vis_t=np.arange(600)/100
+vis_trace=np.sin(2*np.pi*3*vis_t)*3
+fig,ax=plt.subplots(figsize=(11,4))
+ax.plot(vis_t,vis_trace,color='#555',lw=1)
+for event_time,color,ypos in [(2.,'#35688a',5),(2.7,'#b87714',7)]:
+    ax.axvspan(event_time-.2,event_time+.8,color=color,alpha=.14)
+    ax.axvline(event_time,color=color,linestyle='--')
+    ax.annotate('',xy=(event_time+.8,ypos),xytext=(event_time-.2,ypos),arrowprops=dict(arrowstyle='<->',color=color,lw=2))
+    ax.text(event_time+.3,ypos+.25,f'Epoch around {event_time:g} s',ha='center',color=color)
+ax.axvspan(1.8,2.,color='#35688a',alpha=.35)
+ax.set(xlim=(1,4),ylim=(-4,9),xlabel='Recording time (s)',ylabel='Illustrative amplitude',title='SIMULATION · 0.2 s before to 0.8 s after each event')
+plt.show()
+
+# %% [markdown]
+# ### Worked interpretation
+#
+# The first epoch ends at 2.8 s; the second starts at 2.5 s. Their overlap is 0.3 s. A random split of these windows would share raw samples across partitions. The darker pre-event segment illustrates a baseline, not an automatic indication of rest.
+
+# %% [markdown]
+# ## Guided practice 1 · sample boundaries
 #
 # Calculate a segment around an event at sample 1000, with 100 Hz sampling and limits −0.2 to 0.8 s. Predict the number of samples before evaluating.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_event=1000;demo_fs=100
@@ -106,16 +195,25 @@ print(demo_start,demo_stop,len(demo_indices))
 assert len(demo_indices)==101
 
 # %% [markdown]
-# **Read the result.** Python slices normally exclude their stop index; MNE epoch time bounds include the final sample when available. This is a common one-sample discrepancy.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Python slices normally exclude their stop index; MNE epoch time bounds include the final sample when available. This is a common one-sample discrepancy.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Worked example · baseline subtraction
+# ## Guided practice 2 · baseline subtraction
 #
 # Use an offset trace and a two-sample baseline. Compare the response relative to zero before and after correction.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_trace=np.array([5.,7.,9.,8.,6.])
@@ -125,32 +223,50 @@ assert np.isclose(demo_corrected[:2].mean(),0)
 assert np.isclose(np.ptp(demo_trace),np.ptp(demo_corrected))
 
 # %% [markdown]
-# **Read the result.** Subtracting a constant changes the offset but not peak-to-peak range. Baseline correction and amplitude rejection therefore answer different questions.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Subtracting a constant changes the offset but not peak-to-peak range. Baseline correction and amplitude rejection therefore answer different questions.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Guided experiment · unequal rejection
+# ## Guided practice 3 · unequal rejection
 #
 # Create a small audit table. Calculate retention within each class, rather than only the total number of surviving epochs.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_audit=pd.DataFrame({'class':['left']*5+['right']*5,'keep':[1,1,1,1,1,1,0,0,1,0]})
 print(demo_audit.groupby('class')['keep'].agg(['sum','count','mean']))
 
 # %% [markdown]
-# **Read the result.** The retained data have a different class composition from the original data. Report per-class retention with the modeling results.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# The retained data have a different class composition from the original data. Report per-class retention with the modeling results.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Guided experiment · overlapping windows
+# ## Guided practice 4 · overlapping windows
 #
 # Two windows can share raw samples even when they have different row indices. Compute their intersection.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_window_a=set(range(0,200))
@@ -159,9 +275,48 @@ print('Shared samples:',len(demo_window_a & demo_window_b))
 print('Fraction of each window shared:',len(demo_window_a & demo_window_b)/200)
 
 # %% [markdown]
-# **Read the result.** Randomly splitting these windows leaks part of the same recording into both sets. Use blocks or runs and, where necessary, a gap between partitions.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Randomly splitting these windows leaks part of the same recording into both sets. Use blocks or runs and, where necessary, a gap between partitions.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
+
+# %% [markdown]
+# ## Practice 1 · Baseline function
+#
+# Implement baseline_center for a trial × channel × time array and a Boolean time mask.
+#
+# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+
+# %%
+def baseline_center(values, mask):
+    # TODO: subtract one baseline mean per trial and channel.
+    return None
+
+# %% [markdown]
+# ### Hint
+#
+# Use the equation above and keep the trial/channel axes intact unless the requested output removes them. Test the smallest example by hand first.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Compare this implementation with your attempt. The next cell checks the reference answer on a concrete numerical case.
+
+# %%
+def baseline_center(values,mask):
+    return values-values[...,mask].mean(axis=-1,keepdims=True)
+
+# %%
+demo_cube=np.arange(24.).reshape(2,3,4)
+demo_mask=np.array([True,True,False,False])
+answer=baseline_center(demo_cube,demo_mask)
+if answer is not None:
+    assert answer.shape==demo_cube.shape
+    assert np.allclose(answer[...,demo_mask].mean(axis=-1),0)
+    assert np.allclose(answer[...,3]-answer[...,2],1)
+    print('Baseline checks passed.')
+else: print('Exercise pending: implement baseline_center.')
 
 # %% [markdown]
 # ## Apply the ideas to the complete pipeline
@@ -183,21 +338,63 @@ print('Fraction of each window shared:',len(demo_window_a & demo_window_b)/200)
 #
 # Explicit event mapping prevents rest or a different task from entering the two imagery classes. The epoch collection is created without amplitude rejection so that the effect of the later threshold remains measurable.
 
+# %% [markdown]
+# ### Step 1.1 · trace the next operation
+#
+# **1.** Import the named tools used in this step.
+#
+# **2.** Fetch only the specified participant/run files; the cache prevents repeat downloads.
+#
+# **3.** Read continuous voltage samples and metadata into an MNE Raw object.
+#
+# **4.** Standardize dataset channel names so later sensor-name selection is meaningful.
+#
+# **5.** Attach sensor coordinates; this does not perform anatomical source localization.
+#
+# **6.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+#
+# **7.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
 # %%
+# Import the named tools used in this step.
 from mne.datasets import eegbci
+# Fetch only the specified participant/run files; the cache prevents repeat downloads.
 files = eegbci.load_data(1, [4], path=DATA_ROOT, update_path=False)
+# Read continuous voltage samples and metadata into an MNE Raw object.
 raw = mne.io.read_raw_edf(files[0], preload=True, verbose=False)
+# Standardize dataset channel names so later sensor-name selection is meaningful.
 eegbci.standardize(raw)
+# Attach sensor coordinates; this does not perform anatomical source localization.
 raw.set_montage('standard_1005')
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print(raw)
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print('Channel types:', set(raw.get_channel_types()))
 
-events,event_id=mne.events_from_annotations(raw,event_id={'T1':1,'T2':2})
+# %% [markdown]
+# ### Step 1.2 · trace the next operation
+#
+# **1.** Translate documented annotation descriptions into discrete event codes.
+#
+# **2.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+#
+# **3.** Apply the declared frequency filter; copy first when the original must be preserved.
+#
+# **4.** Create event-aligned trials with the stated interval, baseline and quality rules.
+#
+# **5.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
+# %%
+# Translate documented annotation descriptions into discrete event codes.
+events, event_id = mne.events_from_annotations(raw, event_id={'T1': 1, 'T2': 2})
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print(event_id, events[:5])
-raw.filter(1,30)
-base = mne.Epochs(raw,events,{'left':1,'right':2},-.5,3.5,
-                  baseline=None,preload=True,picks='eeg',reject_by_annotation=True)
-print('Candidate events:',len(events),'in-bounds epochs:',len(base))
+# Apply the declared frequency filter; copy first when the original must be preserved.
+raw.filter(1, 30)
+# Create event-aligned trials with the stated interval, baseline and quality rules.
+base = mne.Epochs(raw, events, {'left': 1, 'right': 2}, -0.5, 3.5, baseline=None, preload=True, picks='eeg', reject_by_annotation=True)
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+print('Candidate events:', len(events), 'in-bounds epochs:', len(base))
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -207,27 +404,117 @@ print('Candidate events:',len(events),'in-bounds epochs:',len(base))
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 2 · Translate one real event into an epoch interval
+#
+# **Try it:** Compute the approximate recording times of the first epoch’s start and end, accounting for first_samp.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %%
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# Event samples use acquisition indexing; subtract raw.first_samp before converting to relative recording time.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
+
+# %%
+lab_event=base.events[0,0]
+lab_onset=(lab_event-raw.first_samp)/raw.info['sfreq']
+print('Event onset relative to recording:',lab_onset,'s')
+print('Epoch interval:',lab_onset+base.times[[0,-1]])
+print('Actual epoch samples:',len(base.times))
+
+# %% [markdown]
+# ### Interpret and check
+#
+# The event index and the Raw array’s zero-based index need not be the same when first_samp is nonzero. Inspecting actual epoch times also avoids an off-by-one assumption about inclusive endpoints.
+
+# %% [markdown]
 # ## Reject and audit
 # The threshold is a declared teaching choice, not a universal EEG quality standard.
 #
 # Apply rejection to a copy and compare retained counts against the original collection. The declared threshold is deliberately visible. `drop_log` documents why candidates were removed; the selection indices connect survivors back to their source events.
 
+# %% [markdown]
+# ### Step 2.1 · trace the next operation
+#
+# **1.** Make the analysis choice visible and fixed before inspecting evaluation performance.
+#
+# **2.** Reject trials on a copy using a threshold in volts; preserve the original candidate set.
+#
+# **3.** Initialize the collection that will retain outputs in the same order as the inputs.
+
 # %%
-threshold = 500e-6
-checked = base.copy().drop_bad(reject={'eeg':threshold})
-rows=[]
-for name,event in base.event_id.items():
-    before=np.sum(base.events[:,2]==event)
-    after=np.sum(checked.events[:,2]==event)
-    rows.append({'class':name,'before':int(before),'after':int(after),'removed':int(before-after)})
+# Make the analysis choice visible and fixed before inspecting evaluation performance.
+threshold = 0.0005
+# Reject trials on a copy using a threshold in volts; preserve the original candidate set.
+checked = base.copy().drop_bad(reject={'eeg': threshold})
+# Initialize the collection that will retain outputs in the same order as the inputs.
+rows = []
+
+# %% [markdown]
+# ### Step 2.2 · trace the next operation
+#
+# **1.** Repeat this operation over the explicitly listed groups while keeping their identities attached.
+
+# %%
+# Repeat this operation over the explicitly listed groups while keeping their identities attached.
+for name, event in base.event_id.items():
+    before = np.sum(base.events[:, 2] == event)
+    after = np.sum(checked.events[:, 2] == event)
+    rows.append({'class': name, 'before': int(before), 'after': int(after), 'removed': int(before - after)})
+
+# %% [markdown]
+# ### Step 2.3 · trace the next operation
+#
+# **1.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+#
+# **2.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+#
+# **3.** Check a required invariant now so a silent alignment or numerical error cannot propagate.
+
+# %%
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print(pd.DataFrame(rows))
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print('Drop reasons:', checked.drop_log[:8])
-assert len(checked)<=len(base)
-fig,ax=plt.subplots()
-ax.hist(np.ptp(base.get_data(),axis=-1).max(axis=1)*1e6,bins=15)
-ax.axvline(threshold*1e6,color='red',label='Threshold')
-ax.set(xlabel='Maximum channel peak-to-peak (µV)',ylabel='Epoch count',title='Rejection diagnostic')
-ax.legend(); plt.show()
+# Check a required invariant now so a silent alignment or numerical error cannot propagate.
+assert len(checked) <= len(base)
+
+# %% [markdown]
+# ### Step 2.4 · trace the next operation
+#
+# **1.** Create axes; plotting changes the display, not the analyzed data.
+#
+# **2.** Expose the numerical array; EEG values are in volts and the final axis is time.
+#
+# **3.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **4.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **5.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **6.** Render the completed figure and inspect labels, units and the comparison.
+
+# %%
+# Create axes; plotting changes the display, not the analyzed data.
+fig, ax = plt.subplots()
+# Expose the numerical array; EEG values are in volts and the final axis is time.
+ax.hist(np.ptp(base.get_data(), axis=-1).max(axis=1) * 1000000.0, bins=15)
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.axvline(threshold * 1000000.0, color='red', label='Threshold')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.set(xlabel='Maximum channel peak-to-peak (µV)', ylabel='Epoch count', title='Rejection diagnostic')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.legend()
+# Render the completed figure and inspect labels, units and the comparison.
+plt.show()
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -237,15 +524,90 @@ ax.legend(); plt.show()
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 3 · Plot a retention curve by condition
+#
+# **Try it:** Apply several thresholds to copies of the same candidate epochs. Show the retained fraction for each class.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %%
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# Always start from base; do not repeatedly reject from an already reduced collection.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
+
+# %%
+lab_rows=[]
+for threshold_uV in [150,300,500,800]:
+    lab_kept=base.copy().drop_bad(reject={'eeg':threshold_uV*1e-6},verbose=False)
+    for name,event in base.event_id.items():
+        lab_before=np.sum(base.events[:,2]==event)
+        lab_after=np.sum(lab_kept.events[:,2]==event)
+        lab_rows.append({'threshold_uV':threshold_uV,'condition':name,'fraction':lab_after/lab_before})
+lab_table=pd.DataFrame(lab_rows)
+fig,ax=plt.subplots(figsize=(9,4))
+for name,table in lab_table.groupby('condition'):
+    ax.plot(table.threshold_uV,table.fraction,'o-',label=name)
+ax.set(ylim=(0,1.05),xlabel='Peak-to-peak threshold (µV)',ylabel='Retained fraction',title='Same candidate trials · sensitivity to rejection threshold')
+ax.legend();plt.show();print(lab_table)
+
+# %% [markdown]
+# ### Interpret and check
+#
+# A larger threshold cannot remove more trials under the same criterion, so retention should be nondecreasing. Unequal class curves indicate a potential selection effect. Choose a threshold using recording quality and calibration evidence, not whichever final test score is largest.
+
+# %% [markdown]
+# ## Practice 4 · Audit a dropped trial
+#
+# **Try it:** Name two distinct reasons that an event may not become a retained epoch and explain why they should not be merged in a report.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %% [markdown]
+# **My answer:** _write a short explanation before continuing._
+
+# %% [markdown]
+# ### Hint
+#
+# Consider recording boundaries as well as signal amplitude.
+
+# %% [markdown]
+# ### Worked solution
+#
+# An epoch may extend beyond available samples, or it may violate an artifact/amplitude criterion. Boundary loss reflects acquisition and interval selection; amplitude rejection reflects a quality decision. The drop log and per-class counts should distinguish them so another analyst can reconstruct the effective sample.
+
+# %% [markdown]
 # ## Verify a baseline numerically
 # Use this for understanding ERP baselines, not as a mandatory motor-imagery step.
 #
 # Baseline subtraction is demonstrated separately from the main imagery pipeline. The numerical check verifies the selected baseline mean, illustrating an invariant that can catch an incorrect time mask or axis.
 
+# %% [markdown]
+# ### Step 3.1 · trace the next operation
+#
+# **1.** Subtract each trial/channel’s mean over the named reference interval.
+#
+# **2.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **3.** Check a required invariant now so a silent alignment or numerical error cannot propagate.
+#
+# **4.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
 # %%
-baseline_epochs=base.copy().apply_baseline((-.5,0))
-mask=(baseline_epochs.times>=-.5)&(baseline_epochs.times<=0)
-assert np.allclose(baseline_epochs.get_data()[:,:,mask].mean(-1),0,atol=1e-12)
+# Subtract each trial/channel’s mean over the named reference interval.
+baseline_epochs = base.copy().apply_baseline((-0.5, 0))
+# Store this intermediate result so the next operation can be traced and inspected.
+mask = (baseline_epochs.times >= -0.5) & (baseline_epochs.times <= 0)
+# Check a required invariant now so a silent alignment or numerical error cannot propagate.
+assert np.allclose(baseline_epochs.get_data()[:, :, mask].mean(-1), 0, atol=1e-12)
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print('Baseline mean is numerically zero.')
 
 # %% [markdown]
@@ -256,115 +618,54 @@ print('Baseline mean is numerically zero.')
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
-# ## Independent practice
+# ## Practice 5 · Predict what baseline subtraction preserves
 #
-# Work through the tasks in order. Exercise 1 includes a small implementation check; passing it verifies the stated example, not every possible input. For the investigations, save a labeled figure or table and a short explanation. Use copies of data objects when changing preprocessing, and preserve any held-out evaluation partition.
+# **Try it:** Does the peak-to-peak range change after subtracting the baseline mean? Explain algebraically.
 #
-# **Submission:** your completed notebook, the requested outputs, and a brief exit-ticket response. The notebook runs before exercises are completed; “pending” means your work is still required.
+# **My reasoning / hand calculation:** _write here._
 
 # %% [markdown]
-# ### Exercise 1 · Baseline function
-#
-# Implement baseline_center for a trial × channel × time array and a Boolean time mask.
-
-# %%
-def baseline_center(values, mask):
-    # TODO: subtract one baseline mean per trial and channel.
-    return None
-
-# %%
-demo_cube=np.arange(24.).reshape(2,3,4)
-demo_mask=np.array([True,True,False,False])
-answer=baseline_center(demo_cube,demo_mask)
-if answer is not None:
-    assert answer.shape==demo_cube.shape
-    assert np.allclose(answer[...,demo_mask].mean(axis=-1),0)
-    assert np.allclose(answer[...,3]-answer[...,2],1)
-    print('Baseline checks passed.')
-else: print('Exercise pending: implement baseline_center.')
+# **My answer:** _write a short explanation before continuing._
 
 # %% [markdown]
-# **Your response:**
+# ### Hint
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# Subtract the same constant from both maximum and minimum.
 
 # %% [markdown]
-# ### Exercise 2 · Event audit
+# ### Worked solution
 #
-# Print the annotation dictionary and condition counts before epoching. Explain every event code included and excluded.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# No: max(x−b)−min(x−b)=max(x)−min(x). Baseline subtraction changes the offset, not the within-epoch range. It can still alter ERP amplitudes relative to zero and can introduce bias if baseline periods differ systematically by condition.
 
 # %% [markdown]
-# **Your response:**
+# ## Practice 6 · explain the complete method
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+#
+# **My explanation:** _write here._
 
 # %% [markdown]
-# ### Exercise 3 · Threshold curve
+# ### Worked answer · compare your reasoning
 #
-# Try at least four rejection thresholds on copies of the same original epochs. Plot retained fraction by condition. Choose a threshold based on evidence, not the highest test score.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# Events connect acquisition samples to experimental meaning. Epoching chooses temporal support, baseline subtraction changes offsets, and rejection changes which trials survive. Preserve the original selection and report class-specific retention and drop reasons.
 
 # %% [markdown]
-# **Your response:**
+# ## If your result is different
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# If no epochs survive, inspect volts versus microvolts, thresholds and drop_log. If event codes are unexpected, verify the run-specific protocol before remapping labels.
+#
+# If a dataset download fails, read the error and retry when the public host is reachable; do not silently replace real data with simulated values. If a notebook cell refers to an undefined variable, restart the kernel and run the preceding cells in order. Numerical scores can vary slightly with library versions; record versions and compare the protocol before concluding that a method changed.
 
 # %% [markdown]
-# ### Exercise 4 · Baseline sensitivity
+# ## Can you now do this independently?
 #
-# Compare no baseline with two plausible intervals. Show the effect on an ERP and explain which claim depends on the baseline.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
-
-# %% [markdown]
-# **Your response:**
+# - Explain each arrow in the lesson map and the units at its boundaries.
+# - Reproduce the hand calculation and point to its corresponding code.
+# - Interpret the figures without turning a descriptive pattern into an unsupported causal claim.
+# - Complete a practice task before reading its worked solution.
+# - State which choices were fixed and which were learned from calibration data.
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
-
-# %% [markdown]
-# ### Exercise 5 · Drop-log investigation
-#
-# Inspect at least one dropped trial or document why none were dropped. Distinguish data-boundary loss from amplitude rejection.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
-
-# %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
-
-# %% [markdown]
-# ### Exercise 6 · Exit ticket
-#
-# Write a short reproducibility record including event mapping, interval, baseline, threshold, retained counts and split grouping.
-
-# %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# If one item is unclear, return to the associated figure or practice section before the next lesson.
 
 # %% [markdown]
 # ## Next steps and sources

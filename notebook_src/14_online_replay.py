@@ -11,6 +11,21 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## How to study this notebook
+#
+# This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
+#
+# 1. Read the question and calculate a small example on paper.
+# 2. Write your prediction before running the next code cell.
+# 3. Try the practice task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 5. Change one parameter and explain what the result means.
+#
+# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+#
+# **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
+
+# %% [markdown]
 # ## The question for today
 #
 # An offline decoder sees an entire recording. A live interface receives one chunk at a time. We replay a recording under that constraint and inspect the state, timing and information boundaries needed for a credible online pipeline.
@@ -22,7 +37,7 @@
 # - Timestamp a trailing feature window without using future samples.
 # - Separate replay correctness from closed-loop BCI performance.
 #
-# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The worked examples use small controlled arrays; the later walkthrough uses the dataset stated above. End-of-lesson exercises contain editable workspaces. A pending exercise message is expected until you complete its function.
+# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The first worked examples use controlled arrays; the later walkthrough and applied practice use the dataset stated above. Practice workspaces, hints and worked solutions are placed beside the relevant methods. Complete your attempt before continuing to the reference solution.
 
 # %% [markdown]
 # ## Setup
@@ -60,6 +75,49 @@ print({p: metadata.version(p) for p in ['mne','moabb','numpy','scipy','scikit-le
 print('Dataset cache:', DATA_ROOT)
 
 # %% [markdown]
+# ## Visual route through the lesson
+#
+# Follow the arrows before running the analysis. For each box, say what the input represents, what changes, and what must be preserved.
+
+# %%
+# Drawing code for the lesson map; no analysis data are transformed here.
+from matplotlib.patches import FancyBboxPatch
+map_steps=['Incoming samples\ntime-ordered chunks', 'Causal SOS filter\ncarry state forward', 'Trailing buffer\npast samples only', 'Window feature\nknown availability', 'Decision policy\nfuture extension']
+fig,map_ax=plt.subplots(figsize=(12,3.1),constrained_layout=True)
+map_ax.set(xlim=(-.1,12),ylim=(-.3,2.4));map_ax.axis('off')
+for map_i,map_label in enumerate(map_steps):
+    map_x=map_i*2.4
+    map_ax.add_patch(FancyBboxPatch((map_x,.45),2.05,1.1,
+        boxstyle='round,pad=0.08',facecolor='#edf3f7',edgecolor='#35688a',linewidth=1.5))
+    map_ax.text(map_x+1.025,1.02,map_label,ha='center',va='center',fontsize=10)
+    map_ax.text(map_x+1.025,1.83,str(map_i+1),ha='center',weight='bold',color='#35688a')
+    if map_i<4:map_ax.annotate('',xy=(map_x+2.3,1),xytext=(map_x+2.13,1),arrowprops=dict(arrowstyle='->',lw=1.5))
+map_ax.text(5.9,-.08,'Read left to right. Keep units, observation identities and evaluation boundaries attached to the data.',ha='center',fontsize=10)
+map_ax.set_title('Lesson 14 · from measurement to an interpretable result',fontsize=14,pad=12)
+plt.show()
+
+# %% [markdown]
+# **Read the map:** the arrows represent processing order, not permission to fit on all observations. When a stage learns parameters, keep evaluation data outside that fit. The map is also available as text: Incoming samples: time-ordered chunks → Causal SOS filter: carry state forward → Trailing buffer: past samples only → Window feature: known availability → Decision policy: future extension.
+
+# %% [markdown]
+# ## Symbols and a calculation by hand
+#
+# $z_i$: filter state after chunk $i$; $W$: trailing-window samples; $H$: hop samples; $f_s$: sampling rate.
+#
+# ### Derive the operation before calling the library
+#
+# A stateful filter acts as $(y_i,z_i)=F(x_i,z_{i-1})$. The state summarizes the history needed for the next chunk. Resetting $z$ to zero at every boundary discards that history and creates transients.
+#
+# A trailing variance at exclusive array endpoint $e$ uses `values[e-W:e]`. The newest included sample has index $e-1$ and timestamp $(e-1)/f_s$. With $W=256$, $H=32$, and $f_s=128$, the nominal window duration is 2 s, updates are 0.25 s apart, and neighboring windows share $(256-32)/256=87.5\%$ of their samples. Four updates per second are not four independent trials.
+
+# %% [markdown]
+# ### Your paper calculation
+#
+# Rewrite one equation with the numerical example above. Name the input units and output units, and identify the axis being reduced or transformed.
+#
+# **My calculation:** _write your intermediate steps here before continuing._
+
+# %% [markdown]
 # ### Causality is an information constraint
 #
 # A causal output at time $t$ depends only on samples available at or before $t$. An offline zero-phase filter can use later samples to correct phase delay. That is valuable for descriptive analysis, but it cannot be copied into an online system that has not received those samples yet. An online filter has a response delay and startup behavior that must be included in the interface design.
@@ -92,11 +150,38 @@ print('Dataset cache:', DATA_ROOT)
 # This notebook deliberately implements causal filtering and trailing features, not a live command classifier. Offline replay confirms code behavior on recorded data. Closed-loop testing additionally asks how users adapt to feedback, whether feedback changes their signals and whether the complete system remains usable. The distinction should remain explicit in a project report.
 
 # %% [markdown]
-# ### Worked example · preserve state
+# ## Visual intuition · Align chunks, windows and decision time
+#
+# **Try it:** Which samples are allowed to influence the highlighted feature? Where does the newest sample fall?
+
+# %%
+fig,ax=plt.subplots(figsize=(11,3.5),constrained_layout=True)
+for k in range(12):
+    ax.broken_barh([(k*.25,.245)],(.2,.5),facecolors='#b9d1e0',edgecolors='#35688a')
+    ax.text(k*.25+.125,.45,str(k),ha='center',va='center',fontsize=9)
+ax.broken_barh([(1.,2.)],(1.1,.35),facecolors='#e5b453')
+ax.annotate('Decision can use data only through this boundary',xy=(3,1.3),xytext=(1.5,2.1),ha='center',arrowprops=dict(arrowstyle='->'))
+ax.set(xlim=(-.1,3.3),ylim=(0,2.7),yticks=[.45,1.275],yticklabels=['0.25 s chunks','2 s trailing window'],xlabel='Elapsed acquisition time (s)',title='Illustrative buffer schedule · chunk boundaries are not trial boundaries')
+plt.show()
+
+# %% [markdown]
+# ### Worked interpretation
+#
+# The trailing window covers the most recent two seconds. It does not peek into the next chunk. Array timestamps use the last included sample; the drawn boundary represents elapsed acquisition duration, so the two differ by one sample interval.
+
+# %% [markdown]
+# ## Guided practice 1 · preserve state
 #
 # Compare a one-pass causal filter with two chunks sharing the final state.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_stream=np.sin(np.arange(1000)*.1)+.2*np.cos(np.arange(1000)*.9)
@@ -109,32 +194,50 @@ assert np.allclose(np.r_[demo_a,demo_b],demo_full)
 print('Chunked and one-pass causal outputs agree.')
 
 # %% [markdown]
-# **Read the result.** Both paths use zero initial state. Comparing different initialization conventions would test a different question.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Both paths use zero initial state. Comparing different initialization conventions would test a different question.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Guided experiment · reset creates a boundary error
+# ## Guided practice 2 · reset creates a boundary error
 #
 # Repeat the second chunk without carrying state. Measure the resulting difference.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_reset=np.r_[signal.sosfilt(demo_sos,demo_stream[:333]),signal.sosfilt(demo_sos,demo_stream[333:])]
 print('Maximum reset error:',np.max(np.abs(demo_reset-demo_full)))
 
 # %% [markdown]
-# **Read the result.** The error is introduced by chunk handling, even though the input samples and filter coefficients are unchanged.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# The error is introduced by chunk handling, even though the input samples and filter coefficients are unchanged.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Worked example · timestamp the first decision
+# ## Guided practice 3 · timestamp the first decision
 #
 # A trailing two-second window at 128 Hz needs 256 samples. Compute the timestamp of its last sample under a zero-based clock.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_fs=128;demo_W=2*demo_fs
@@ -143,16 +246,25 @@ print('Last-sample timestamp:',demo_first_end/demo_fs,'s')
 print('Nominal window duration:',demo_W/demo_fs,'s')
 
 # %% [markdown]
-# **Read the result.** Sample timestamps and acquisition duration differ by one sample interval under this convention. State which quantity appears on the plot.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Sample timestamps and acquisition duration differ by one sample interval under this convention. State which quantity appears on the plot.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Checkpoint · overlapping evidence
+# ## Guided practice 4 · overlapping evidence
 #
 # Calculate how much data two neighboring feature windows share.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_W=256;demo_step=32
@@ -160,9 +272,43 @@ print('Shared fraction:',(demo_W-demo_step)/demo_W)
 print('Updates per second:',128/demo_step)
 
 # %% [markdown]
-# **Read the result.** Four updates per second do not mean four independent pieces of evidence. Fast visual feedback and statistical independence are different properties.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Four updates per second do not mean four independent pieces of evidence. Fast visual feedback and statistical independence are different properties.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
+
+# %% [markdown]
+# ## Practice 1 · Trailing feature
+#
+# Implement trailing_variance returning one variance per complete trailing window, with the specified step.
+#
+# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+
+# %%
+def trailing_variance(values, window, step):
+    # TODO: use only complete windows; ddof=0.
+    return None
+
+# %% [markdown]
+# ### Hint
+#
+# Use the equation above and keep the trial/channel axes intact unless the requested output removes them. Test the smallest example by hand first.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Compare this implementation with your attempt. The next cell checks the reference answer on a concrete numerical case.
+
+# %%
+def trailing_variance(values,window,step):
+    return np.array([np.var(values[end-window:end]) for end in range(window,len(values)+1,step)])
+
+# %%
+answer=trailing_variance(np.arange(6.),3,2)
+if answer is not None:
+    assert np.allclose(answer,[2/3,2/3]); print('Trailing-window checks passed.')
+else: print('Exercise pending: implement trailing_variance.')
 
 # %% [markdown]
 # ## Apply the ideas to the complete pipeline
@@ -184,18 +330,55 @@ print('Updates per second:',128/demo_step)
 #
 # Keep the native sampling rate and isolate one recorded sensor stream. The filter coefficients are fixed before replay, and all operations are constrained to the arriving samples.
 
+# %% [markdown]
+# ### Step 1.1 · trace the next operation
+#
+# **1.** Import the named tools used in this step.
+#
+# **2.** Fetch only the specified participant/run files; the cache prevents repeat downloads.
+#
+# **3.** Read continuous voltage samples and metadata into an MNE Raw object.
+#
+# **4.** Standardize dataset channel names so later sensor-name selection is meaningful.
+#
+# **5.** Attach sensor coordinates; this does not perform anatomical source localization.
+#
+# **6.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+#
+# **7.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
 # %%
+# Import the named tools used in this step.
 from mne.datasets import eegbci
+# Fetch only the specified participant/run files; the cache prevents repeat downloads.
 files = eegbci.load_data(1, [4], path=DATA_ROOT, update_path=False)
+# Read continuous voltage samples and metadata into an MNE Raw object.
 raw = mne.io.read_raw_edf(files[0], preload=True, verbose=False)
+# Standardize dataset channel names so later sensor-name selection is meaningful.
 eegbci.standardize(raw)
+# Attach sensor coordinates; this does not perform anatomical source localization.
 raw.set_montage('standard_1005')
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print(raw)
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print('Channel types:', set(raw.get_channel_types()))
 
-stream=raw.get_data(picks=['C3'])[0]
-fs=raw.info['sfreq']
-sos=signal.butter(4,[8,30],btype='bandpass',fs=fs,output='sos')
+# %% [markdown]
+# ### Step 1.2 · trace the next operation
+#
+# **1.** Expose the numerical array; EEG values are in volts and the final axis is time.
+#
+# **2.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **3.** Create a causal IIR band-pass represented as numerically stable second-order sections.
+
+# %%
+# Expose the numerical array; EEG values are in volts and the final axis is time.
+stream = raw.get_data(picks=['C3'])[0]
+# Store this intermediate result so the next operation can be traced and inspected.
+fs = raw.info['sfreq']
+# Create a causal IIR band-pass represented as numerically stable second-order sections.
+sos = signal.butter(4, [8, 30], btype='bandpass', fs=fs, output='sos')
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -205,27 +388,120 @@ sos=signal.butter(4,[8,30],btype='bandpass',fs=fs,output='sos')
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 2 · Compute the buffer requirements
+#
+# **Try it:** How many samples are needed for two seconds of evidence and a quarter-second update interval at the actual sample rate?
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %%
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# Multiply seconds by fs and check whether the result is an integer.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
+
+# %%
+print('Sampling:',fs,'Hz')
+print('Two-second buffer:',int(2*fs),'samples')
+print('Quarter-second hop:',int(.25*fs),'samples')
+
+# %% [markdown]
+# ### Interpret and check
+#
+# Buffer size determines the history available to the feature. Hop size determines update cadence. Smaller hops create more overlapping estimates, not more independent data.
+
+# %% [markdown]
 # ## Replay with persistent state
 # The equality check would fail if the state were reset inside the loop.
 #
 # The reference is a one-pass causal filter, not a zero-phase offline signal. Chunk processing passes the returned state forward and is checked for numerical equality before any feature is interpreted.
 
+# %% [markdown]
+# ### Step 2.1 · trace the next operation
+#
+# **1.** Filter using past samples; retain the returned state when processing chunks.
+#
+# **2.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **3.** Initialize the collection that will retain outputs in the same order as the inputs.
+
 # %%
-reference=signal.sosfilt(sos,stream)
-state=np.zeros((sos.shape[0],2))
-chunks=[]
-for start in range(0,len(stream),32):
-    filtered,state=signal.sosfilt(sos,stream[start:start+32],zi=state)
+# Filter using past samples; retain the returned state when processing chunks.
+reference = signal.sosfilt(sos, stream)
+# Store this intermediate result so the next operation can be traced and inspected.
+state = np.zeros((sos.shape[0], 2))
+# Initialize the collection that will retain outputs in the same order as the inputs.
+chunks = []
+
+# %% [markdown]
+# ### Step 2.2 · trace the next operation
+#
+# **1.** Process ordered chunks and pass the final filter state into the next chunk.
+
+# %%
+# Process ordered chunks and pass the final filter state into the next chunk.
+for start in range(0, len(stream), 32):
+    # Supply prior state and retain the returned state for the following chunk.
+    filtered, state = signal.sosfilt(sos, stream[start:start + 32], zi=state)
+    # Keep filtered chunks in acquisition order before joining them.
     chunks.append(filtered)
-replay=np.concatenate(chunks)
-assert np.allclose(replay,reference,rtol=1e-10,atol=1e-14)
-print('Maximum chunking error:',np.max(abs(replay-reference)))
-fig,ax=plt.subplots()
-time=np.arange(len(stream))/fs
-ax.plot(time[:1000],stream[:1000]*1e6,label='Raw',alpha=.5)
-ax.plot(time[:1000],replay[:1000]*1e6,label='Causal 8–30 Hz')
-ax.set(xlabel='Time (s)',ylabel='Voltage (µV)',title='Recorded EEG causal replay')
-ax.legend(); plt.show()
+
+# %% [markdown]
+# ### Step 2.3 · trace the next operation
+#
+# **1.** Join arrays along the declared axis; preserve the trial ordering.
+#
+# **2.** Check a required invariant now so a silent alignment or numerical error cannot propagate.
+#
+# **3.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
+# %%
+# Join arrays along the declared axis; preserve the trial ordering.
+replay = np.concatenate(chunks)
+# Check a required invariant now so a silent alignment or numerical error cannot propagate.
+assert np.allclose(replay, reference, rtol=1e-10, atol=1e-14)
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+print('Maximum chunking error:', np.max(abs(replay - reference)))
+
+# %% [markdown]
+# ### Step 2.4 · trace the next operation
+#
+# **1.** Create axes; plotting changes the display, not the analyzed data.
+#
+# **2.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **3.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **4.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **5.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **6.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **7.** Render the completed figure and inspect labels, units and the comparison.
+
+# %%
+# Create axes; plotting changes the display, not the analyzed data.
+fig, ax = plt.subplots()
+# Store this intermediate result so the next operation can be traced and inspected.
+time = np.arange(len(stream)) / fs
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.plot(time[:1000], stream[:1000] * 1000000.0, label='Raw', alpha=0.5)
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.plot(time[:1000], replay[:1000] * 1000000.0, label='Causal 8–30 Hz')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.set(xlabel='Time (s)', ylabel='Voltage (µV)', title='Recorded EEG causal replay')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.legend()
+# Render the completed figure and inspect labels, units and the comparison.
+plt.show()
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -235,19 +511,99 @@ ax.legend(); plt.show()
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 3 · Verify that chunk size does not change the filter
+#
+# **Try it:** Repeat the causal filter with three chunk sizes and compare with the one-pass reference.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %%
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# Start every run with the same zero state and pass each returned state forward.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
+
+# %%
+lab_errors=[]
+for lab_chunk in [1,31,128]:
+    lab_state=np.zeros((len(sos),2));lab_parts=[]
+    for lab_start in range(0,len(stream),lab_chunk):
+        lab_values,lab_state=signal.sosfilt(sos,stream[lab_start:lab_start+lab_chunk],zi=lab_state)
+        lab_parts.append(lab_values)
+    lab_result=np.concatenate(lab_parts)
+    lab_error=np.max(np.abs(lab_result-reference))
+    lab_errors.append({'chunk_samples':lab_chunk,'maximum_error_V':lab_error})
+    assert np.allclose(lab_result,reference,rtol=1e-10,atol=1e-14)
+print(pd.DataFrame(lab_errors))
+
+# %% [markdown]
+# ### Interpret and check
+#
+# Agreement verifies the state handoff for this numerical filter. It does not measure dropped acquisition samples, hardware timing or user adaptation to feedback. Those require other tests.
+
+# %% [markdown]
 # ## Measure feature availability
 # Each feature uses a trailing window only. This is a feature stream, not a validated online classifier.
 #
 # Every log-power estimate uses a complete trailing window. The hop sets display/update cadence; the window sets how much past evidence supports one estimate. No classification accuracy is claimed by this feature plot.
 
+# %% [markdown]
+# ### Step 3.1 · trace the next operation
+#
+# **1.** Make the analysis choice visible and fixed before inspecting evaluation performance.
+#
+# **2.** Make the analysis choice visible and fixed before inspecting evaluation performance.
+#
+# **3.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **4.** Use a log transform on positive power; a small floor avoids taking log of zero.
+
 # %%
-window=int(2*fs); hop=int(.25*fs)
-ends=np.arange(window,len(replay)+1,hop)
-log_power=np.array([np.log(np.var(replay[end-window:end])+1e-30) for end in ends])
-fig,ax=plt.subplots(); ax.plot((ends-1)/fs,log_power)
-ax.set(xlabel='Time feature becomes available (s)',ylabel='Log variance (V²)',title='Causal trailing-window features')
+# Make the analysis choice visible and fixed before inspecting evaluation performance.
+window = int(2 * fs)
+# Make the analysis choice visible and fixed before inspecting evaluation performance.
+hop = int(0.25 * fs)
+# Store this intermediate result so the next operation can be traced and inspected.
+ends = np.arange(window, len(replay) + 1, hop)
+# Use a log transform on positive power; a small floor avoids taking log of zero.
+log_power = np.array([np.log(np.var(replay[end - window:end]) + 1e-30) for end in ends])
+
+# %% [markdown]
+# ### Step 3.2 · trace the next operation
+#
+# **1.** Create axes; plotting changes the display, not the analyzed data.
+#
+# **2.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **3.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **4.** Render the completed figure and inspect labels, units and the comparison.
+
+# %%
+# Create axes; plotting changes the display, not the analyzed data.
+fig, ax = plt.subplots()
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.plot((ends - 1) / fs, log_power)
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.set(xlabel='Time feature becomes available (s)', ylabel='Log variance (V²)', title='Causal trailing-window features')
+# Render the completed figure and inspect labels, units and the comparison.
 plt.show()
-print('Window duration:',window/fs,'s; update interval:',hop/fs,'s')
+
+# %% [markdown]
+# ### Step 3.3 · trace the next operation
+#
+# **1.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
+# %%
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+print('Window duration:', window / fs, 's; update interval:', hop / fs, 's')
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -257,110 +613,74 @@ print('Window duration:',window/fs,'s; update interval:',hop/fs,'s')
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
-# ## Independent practice
+# ## Practice 4 · Timestamp a decision by hand
 #
-# Work through the tasks in order. Exercise 1 includes a small implementation check; passing it verifies the stated example, not every possible input. For the investigations, save a labeled figure or table and a short explanation. Use copies of data objects when changing preprocessing, and preserve any held-out evaluation partition.
+# **Try it:** For an exclusive window endpoint e, which sample is the newest used and what is its timestamp?
 #
-# **Submission:** your completed notebook, the requested outputs, and a brief exit-ticket response. The notebook runs before exercises are completed; “pending” means your work is still required.
+# **My reasoning / hand calculation:** _write here._
 
 # %% [markdown]
-# ### Exercise 1 · Trailing feature
-#
-# Implement trailing_variance returning one variance per complete trailing window, with the specified step.
-
-# %%
-def trailing_variance(values, window, step):
-    # TODO: use only complete windows; ddof=0.
-    return None
-
-# %%
-answer=trailing_variance(np.arange(6.),3,2)
-if answer is not None:
-    assert np.allclose(answer,[2/3,2/3]); print('Trailing-window checks passed.')
-else: print('Exercise pending: implement trailing_variance.')
+# **My answer:** _write a short explanation before continuing._
 
 # %% [markdown]
-# **Your response:**
+# ### Hint
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# Python slicing excludes the endpoint.
 
 # %% [markdown]
-# ### Exercise 2 · Chunk invariant
+# ### Worked solution
 #
-# Test causal filtering with chunk sizes 1, 31, 128 and a full stream. Assert equality under a common initial state.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# The newest sample is e−1 and its timestamp is (e−1)/fs when sample zero is time zero. The drawn acquisition boundary may instead be e/fs. Define the convention explicitly so a one-sample difference is not confused with processing latency.
 
 # %% [markdown]
-# **Your response:**
+# ## Practice 5 · Add a sensible command policy
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# **Try it:** Why should a live interface not emit a command on every threshold crossing?
+#
+# **My reasoning / hand calculation:** _write here._
 
 # %% [markdown]
-# ### Exercise 3 · Startup inspection
-#
-# Plot the beginning of the causal output and discuss a warm-up policy. Do not silently remove startup samples from latency accounting.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# **My answer:** _write a short explanation before continuing._
 
 # %% [markdown]
-# **Your response:**
+# ### Hint
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# A noisy score can cross back and forth rapidly.
 
 # %% [markdown]
-# ### Exercise 4 · Decision policy
+# ### Worked solution
 #
-# Implement a simple two-threshold hysteresis rule on simulated scores. Report command count, false triggers and delay for a known simulated target interval.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# A policy may require sustained evidence, hysteresis, a refractory interval or a reject state. These reduce repeated false commands but can increase delay and missed commands. Calibrate them on appropriate data and evaluate false activations during no-control periods as well as intended selections.
 
 # %% [markdown]
-# **Your response:**
+# ## Practice 6 · explain the complete method
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+#
+# **My explanation:** _write here._
 
 # %% [markdown]
-# ### Exercise 5 · Replay limitations
+# ### Worked answer · compare your reasoning
 #
-# List three phenomena absent from array replay and propose a test for each before classroom use with live acquisition.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# Correct replay preserves state and uses only available samples. Trailing windows have explicit availability times and strong overlap. Numerical replay correctness is one engineering check, not a substitute for acquisition timing and closed-loop user evaluation.
 
 # %% [markdown]
-# **Your response:**
+# ## If your result is different
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# If chunked and one-pass outputs disagree, compare initialization and state handoff. If the first feature is early, inspect whether the window accidentally includes future or incomplete samples.
+#
+# If a dataset download fails, read the error and retry when the public host is reachable; do not silently replace real data with simulated values. If a notebook cell refers to an undefined variable, restart the kernel and run the preceding cells in order. Numerical scores can vary slightly with library versions; record versions and compare the protocol before concluding that a method changed.
 
 # %% [markdown]
-# ### Exercise 6 · Exit ticket
+# ## Can you now do this independently?
 #
-# Explain why a centered moving average and a trailing moving average have different online information requirements.
-
-# %% [markdown]
-# **Your response:**
+# - Explain each arrow in the lesson map and the units at its boundaries.
+# - Reproduce the hand calculation and point to its corresponding code.
+# - Interpret the figures without turning a descriptive pattern into an unsupported causal claim.
+# - Complete a practice task before reading its worked solution.
+# - State which choices were fixed and which were learned from calibration data.
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# If one item is unclear, return to the associated figure or practice section before the next lesson.
 
 # %% [markdown]
 # ## Next steps and sources

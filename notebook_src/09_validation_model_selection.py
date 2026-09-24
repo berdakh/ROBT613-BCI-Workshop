@@ -11,6 +11,21 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## How to study this notebook
+#
+# This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
+#
+# 1. Read the question and calculate a small example on paper.
+# 2. Write your prediction before running the next code cell.
+# 3. Try the practice task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 5. Change one parameter and explain what the result means.
+#
+# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+#
+# **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
+
+# %% [markdown]
 # ## The question for today
 #
 # Two models differ by five percentage points. Was one better, or did the evaluation accidentally reward reuse of the same recording? We turn “train/test split” into an explicit scientific claim about future use.
@@ -22,7 +37,7 @@
 # - Calculate class-balanced metrics and distinguish scores from uncertainty.
 # - Identify every learned preprocessing operation that must be refitted within folds.
 #
-# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The worked examples use small controlled arrays; the later walkthrough uses the dataset stated above. End-of-lesson exercises contain editable workspaces. A pending exercise message is expected until you complete its function.
+# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The first worked examples use controlled arrays; the later walkthrough and applied practice use the dataset stated above. Practice workspaces, hints and worked solutions are placed beside the relevant methods. Complete your attempt before continuing to the reference solution.
 
 # %% [markdown]
 # ## Setup
@@ -60,6 +75,49 @@ print({p: metadata.version(p) for p in ['mne','moabb','numpy','scipy','scikit-le
 print('Dataset cache:', DATA_ROOT)
 
 # %% [markdown]
+# ## Visual route through the lesson
+#
+# Follow the arrows before running the analysis. For each box, say what the input represents, what changes, and what must be preserved.
+
+# %%
+# Drawing code for the lesson map; no analysis data are transformed here.
+from matplotlib.patches import FancyBboxPatch
+map_steps=['Define future use\nrun / session / person', 'Outer partition\nreserve test group', 'Inner partition\nselect hyperparameters', 'Refit on outer train\nall learned steps', 'Outer score table\nindependent scope']
+fig,map_ax=plt.subplots(figsize=(12,3.1),constrained_layout=True)
+map_ax.set(xlim=(-.1,12),ylim=(-.3,2.4));map_ax.axis('off')
+for map_i,map_label in enumerate(map_steps):
+    map_x=map_i*2.4
+    map_ax.add_patch(FancyBboxPatch((map_x,.45),2.05,1.1,
+        boxstyle='round,pad=0.08',facecolor='#edf3f7',edgecolor='#35688a',linewidth=1.5))
+    map_ax.text(map_x+1.025,1.02,map_label,ha='center',va='center',fontsize=10)
+    map_ax.text(map_x+1.025,1.83,str(map_i+1),ha='center',weight='bold',color='#35688a')
+    if map_i<4:map_ax.annotate('',xy=(map_x+2.3,1),xytext=(map_x+2.13,1),arrowprops=dict(arrowstyle='->',lw=1.5))
+map_ax.text(5.9,-.08,'Read left to right. Keep units, observation identities and evaluation boundaries attached to the data.',ha='center',fontsize=10)
+map_ax.set_title('Lesson 09 · from measurement to an interpretable result',fontsize=14,pad=12)
+plt.show()
+
+# %% [markdown]
+# **Read the map:** the arrows represent processing order, not permission to fit on all observations. When a stage learns parameters, keep evaluation data outside that fit. The map is also available as text: Define future use: run / session / person → Outer partition: reserve test group → Inner partition: select hyperparameters → Refit on outer train: all learned steps → Outer score table: independent scope.
+
+# %% [markdown]
+# ## Symbols and a calculation by hand
+#
+# $G$: grouping variable; $h$: hyperparameters; $k$: outer fold; $s_k$: outer score; $K$: classes.
+#
+# ### Derive the operation before calling the library
+#
+# Within outer fold $k$, choose $\hat h_k=\arg\max_h\operatorname{CV}_{inner}(h,D_{train,k})$. Refit that configuration on $D_{train,k}$ and score it once on $D_{test,k}$. The test group takes no part in either choice or fit.
+#
+# For three runs A/B/C, one outer fold reserves C and performs inner A→B and B→A comparisons. It then refits on A+B and evaluates on C. Rotate the outer held-out run to obtain three descriptive scores. Balanced accuracy is $K^{-1}\sum_kTP_k/(TP_k+FN_k)$: an all-majority predictor on a binary 90/10 dataset has accuracy 0.9 but balanced accuracy $(1+0)/2=0.5$.
+
+# %% [markdown]
+# ### Your paper calculation
+#
+# Rewrite one equation with the numerical example above. Name the input units and output units, and identify the axis being reduced or transformed.
+#
+# **My calculation:** _write your intermediate steps here before continuing._
+
+# %% [markdown]
 # ### Choose the prediction problem before the split
 #
 # A random trial split asks whether a model generalizes to another trial under closely shared recording conditions. A held-out run asks a stronger question about a new recording block. A held-out session tests changes across sessions; a held-out participant tests transfer across people. None is a substitute for another. The partition is part of the experiment, not a final programming detail.
@@ -90,11 +148,39 @@ print('Dataset cache:', DATA_ROOT)
 # Permutation tests require exchangeability under the null. Arbitrarily shuffling individual trials can break temporal or block structure. Bootstrap intervals likewise depend on the unit resampled: trials, runs and participants support different claims. This lesson teaches the reasoning and avoids presenting three folds as a precise population confidence interval.
 
 # %% [markdown]
-# ### Worked example · imbalanced accuracy
+# ## Visual intuition · Separate outer testing from inner selection
+#
+# **Try it:** Trace the row where C is the outer test run. Which observations can select a component count?
+
+# %%
+from matplotlib.colors import ListedColormap
+vis_roles=np.array([[2,1,1],[1,2,1],[1,1,2],[0,1,2],[1,0,2]])
+vis_labels=['Outer fold 1','Outer fold 2','Outer fold 3','Fold 3 inner split 1','Fold 3 inner split 2']
+fig,ax=plt.subplots(figsize=(9,4.5),constrained_layout=True)
+ax.imshow(vis_roles,cmap=ListedColormap(['#e5b453','#b9d1e0','#465461']),vmin=0,vmax=2,aspect='auto')
+for row in range(5):
+    for col in range(3):ax.text(col,row,['Validate','Train','TEST: untouched'][vis_roles[row,col]],ha='center',va='center',color='white' if vis_roles[row,col]==2 else 'black')
+ax.set(xticks=range(3),xticklabels=['Run A','Run B','Run C'],yticks=range(5),yticklabels=vis_labels,title='Partition map · the outer test run stays outside both inner splits')
+plt.show()
+
+# %% [markdown]
+# ### Worked interpretation
+#
+# In outer fold 3, A and B exchange training/validation roles while C remains untouched. After selection, refit on A+B, then evaluate once on C. The two lower rows illustrate only fold 3, not two additional independent tests.
+
+# %% [markdown]
+# ## Guided practice 1 · imbalanced accuracy
 #
 # Construct a 90/10 dataset and predict only the majority class.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 from sklearn.metrics import accuracy_score
@@ -103,16 +189,25 @@ demo_pred=np.zeros(100,dtype=int)
 print('Accuracy:',accuracy_score(demo_y,demo_pred),'Balanced accuracy:',balanced_accuracy_score(demo_y,demo_pred))
 
 # %% [markdown]
-# **Read the result.** Ninety percent accuracy can coexist with zero sensitivity to the minority class. The metric must reflect the scientific objective.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Ninety percent accuracy can coexist with zero sensitivity to the minority class. The metric must reflect the scientific objective.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Worked example · inspect grouped folds
+# ## Guided practice 2 · inspect grouped folds
 #
 # Use three groups and print the identifiers in each partition. Assert that no group crosses a boundary.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_groups=np.repeat(['run A','run B','run C'],4)
@@ -122,16 +217,25 @@ for train_idx,test_idx in GroupKFold(3).split(np.zeros((12,1)),demo_y,demo_group
     print('Train:',np.unique(demo_groups[train_idx]),'Test:',np.unique(demo_groups[test_idx]))
 
 # %% [markdown]
-# **Read the result.** Checking group identities is more direct than assuming a splitter did what the experiment required.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Checking group identities is more direct than assuming a splitter did what the experiment required.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Guided experiment · fitting the scaler
+# ## Guided practice 3 · fitting the scaler
 #
 # Compare training-only and pooled means when the held-out data have shifted.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_train=np.array([[0.],[1.],[2.]])
@@ -142,16 +246,25 @@ print('Pooled mean:',np.vstack([demo_train,demo_test]).mean(axis=0))
 print('Test transformed by training parameters:',demo_scaler.transform(demo_test).ravel())
 
 # %% [markdown]
-# **Read the result.** The shifted test values should remain shifted. Using their mean during fitting partly adapts to the evaluation distribution and changes the question being measured.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# The shifted test values should remain shifted. Using their mean during fitting partly adapts to the evaluation distribution and changes the question being measured.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Checkpoint · selection optimism
+# ## Guided practice 4 · selection optimism
 #
 # Imagine twenty equally good candidates whose validation estimates contain noise. Compare the maximum observed estimate with their shared true value.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_rng=np.random.default_rng(613)
@@ -160,9 +273,45 @@ print('Mean of all estimates:',demo_estimates.mean())
 print('Mean selected maximum:',demo_estimates.max(axis=1).mean())
 
 # %% [markdown]
-# **Read the result.** Selecting the largest noisy estimate inflates its apparent performance. An untouched outer evaluation is needed even when every candidate has identical true quality.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Selecting the largest noisy estimate inflates its apparent performance. An untouched outer evaluation is needed even when every candidate has identical true quality.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
+
+# %% [markdown]
+# ## Practice 1 · Group assertion
+#
+# Implement groups_disjoint to return whether train and test contain no shared group identifiers.
+#
+# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+
+# %%
+def groups_disjoint(train_groups, test_groups):
+    # TODO: return a Boolean.
+    return None
+
+# %% [markdown]
+# ### Hint
+#
+# Use the equation above and keep the trial/channel axes intact unless the requested output removes them. Test the smallest example by hand first.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Compare this implementation with your attempt. The next cell checks the reference answer on a concrete numerical case.
+
+# %%
+def groups_disjoint(train_groups,test_groups):
+    return set(train_groups).isdisjoint(set(test_groups))
+
+# %%
+answer=groups_disjoint(['A','B'],['C'])
+if answer is not None:
+    assert answer
+    assert not groups_disjoint(['A','B'],['B','C'])
+    print('Group checks passed.')
+else: print('Exercise pending: implement groups_disjoint.')
 
 # %% [markdown]
 # ## Apply the ideas to the complete pipeline
@@ -184,27 +333,75 @@ print('Mean selected maximum:',demo_estimates.max(axis=1).mean())
 #
 # Preserve run groups while loading and processing each run separately. The nested evaluation needs those identifiers to distinguish inner development from outer assessment.
 
+# %% [markdown]
+# ### Step 1.1 · trace the next operation
+#
+# **1.** Import the named tools used in this step.
+#
+# **2.** Make the analysis choice visible and fixed before inspecting evaluation performance.
+#
+# **3.** Store this intermediate result so the next operation can be traced and inspected.
+
 # %%
+# Import the named tools used in this step.
 from mne.datasets import eegbci
-runs = [4, 8, 12]  # ALL are imagined left versus right fist, not hands versus feet
-parts, groups = [], []
+# Make the analysis choice visible and fixed before inspecting evaluation performance.
+runs = [4, 8, 12]
+# Store this intermediate result so the next operation can be traced and inspected.
+parts, groups = ([], [])
+
+# %% [markdown]
+# ### Step 1.2 · trace the next operation
+#
+# **1.** Process each run independently; carry its run ID into every resulting trial.
+
+# %%
+# Process each run independently; carry its run ID into every resulting trial.
 for run in runs:
+    # Retrieve this run independently so filtering does not cross a run boundary.
     paths = eegbci.load_data(1, [run], path=DATA_ROOT, update_path=False)
+    # Load this run’s continuous recording and its sampling metadata.
     raw_run = mne.io.read_raw_edf(paths[0], preload=True, verbose=False)
+    # Make sensor names consistent with the montage and later channel selections.
     eegbci.standardize(raw_run)
+    # Attach sensor locations; no anatomical inverse model is used.
     raw_run.set_montage('standard_1005')
+    # Use the same reference convention for every run.
     raw_run.set_eeg_reference('average', projection=False)
+    # Filter the continuous run before extracting its trials.
     raw_run.filter(8, 30, fir_design='firwin')
+    # Map only the documented imagery cues to the two class codes.
     events, _ = mne.events_from_annotations(raw_run, event_id={'T1': 1, 'T2': 2})
-    ep = mne.Epochs(raw_run, events, {'left': 1, 'right': 2}, tmin=0.5,
-                    tmax=3.5, baseline=None, preload=True, picks='eeg',
-                    reject_by_annotation=True)
+    # Extract the stated post-cue interval while retaining condition labels.
+    ep = mne.Epochs(raw_run, events, {'left': 1, 'right': 2}, tmin=0.5, tmax=3.5, baseline=None, preload=True, picks='eeg', reject_by_annotation=True)
+    # Retain this run’s epoch object for the later concatenation.
     parts.append(ep)
+    # Append exactly one run identifier for every retained trial.
     groups.extend([run] * len(ep))
+
+# %% [markdown]
+# ### Step 1.3 · trace the next operation
+#
+# **1.** Join trial collections while retaining one aligned group label per trial.
+#
+# **2.** Expose the numerical array; EEG values are in volts and the final axis is time.
+#
+# **3.** Keep one label or grouping identifier per trial in exactly the same order as the EEG array.
+#
+# **4.** Make an explicit NumPy vector while preserving its current row order.
+#
+# **5.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
+# %%
+# Join trial collections while retaining one aligned group label per trial.
 epochs = mne.concatenate_epochs(parts)
+# Expose the numerical array; EEG values are in volts and the final axis is time.
 X = epochs.get_data(copy=True)
+# Keep one label or grouping identifier per trial in exactly the same order as the EEG array.
 y = epochs.events[:, 2] - 1
+# Make an explicit NumPy vector while preserving its current row order.
 groups = np.asarray(groups)
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print('Epochs:', X.shape, 'run counts:', pd.Series(groups).value_counts().to_dict())
 
 # %% [markdown]
@@ -215,31 +412,122 @@ print('Epochs:', X.shape, 'run counts:', pd.Series(groups).value_counts().to_dic
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 2 · List the groups in one outer and inner split
+#
+# **Try it:** Print one outer partition and the two inner partitions within its training set. Verify that the outer test run never appears inside.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %%
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# Inner indices refer to the outer-training array, not directly to the original full array.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
+
+# %%
+lab_outer_train,lab_outer_test=next(GroupKFold(3).split(X,y,groups))
+print('Outer test:',np.unique(groups[lab_outer_test]))
+for lab_it,lab_iv in GroupKFold(2).split(X[lab_outer_train],y[lab_outer_train],groups[lab_outer_train]):
+    lab_tgroups=groups[lab_outer_train][lab_it]
+    lab_vgroups=groups[lab_outer_train][lab_iv]
+    print('Inner train:',np.unique(lab_tgroups),'inner validation:',np.unique(lab_vgroups))
+    assert set(lab_tgroups).isdisjoint(groups[lab_outer_test])
+    assert set(lab_vgroups).isdisjoint(groups[lab_outer_test])
+
+# %% [markdown]
+# ### Interpret and check
+#
+# The index mapping is a common source of mistakes. Inner indices select rows within outer-training data. Applying those indices directly to full X would silently select different observations and could invalidate the split.
+
+# %% [markdown]
 # ## Nested model comparison
 # With three runs, each outer training fold contains two runs, so the inner loop uses two groups. All learned transformations remain inside the pipeline.
 #
 # The outer loop holds out one run. Inner grouped search chooses CSP component count using only the other two runs. Each row records the held-out result for a complete model-selection procedure.
 
+# %% [markdown]
+# ### Step 2.1 · trace the next operation
+#
+# **1.** Import the named tools used in this step.
+#
+# **2.** Hold entire recording groups out rather than mixing neighboring trials.
+#
+# **3.** Initialize the collection that will retain outputs in the same order as the inputs.
+
 # %%
+# Import the named tools used in this step.
 from mne.decoding import CSP
-outer=GroupKFold(3)
-rows=[]
-for fold,(tr,te) in enumerate(outer.split(X,y,groups),1):
-    model=make_pipeline(CSP(n_components=4,reg='ledoit_wolf',log=True),
-                        LinearDiscriminantAnalysis(solver='lsqr',shrinkage='auto'))
-    search=GridSearchCV(model,{'csp__n_components':[2,4]},cv=GroupKFold(2),
-                        scoring='balanced_accuracy',n_jobs=1)
-    search.fit(X[tr],y[tr],groups=groups[tr])
-    score=balanced_accuracy_score(y[te],search.predict(X[te]))
-    rows.append({'held_out_run':int(groups[te][0]),'balanced_accuracy':score,
-                 'components':search.best_params_['csp__n_components']})
-results=pd.DataFrame(rows)
+# Hold entire recording groups out rather than mixing neighboring trials.
+outer = GroupKFold(3)
+# Initialize the collection that will retain outputs in the same order as the inputs.
+rows = []
+
+# %% [markdown]
+# ### Step 2.2 · trace the next operation
+#
+# **1.** Reserve an outer run, select the model only inside remaining runs, then score the untouched run.
+
+# %%
+# Reserve an outer run, select the model only inside remaining runs, then score the untouched run.
+for fold, (tr, te) in enumerate(outer.split(X, y, groups), 1):
+    # Fit representation and classifier together within the permitted training partition.
+    model = make_pipeline(CSP(n_components=4, reg='ledoit_wolf', log=True), LinearDiscriminantAnalysis(solver='lsqr', shrinkage='auto'))
+    # Search only within the outer-training runs; the outer test remains untouched.
+    search = GridSearchCV(model, {'csp__n_components': [2, 4]}, cv=GroupKFold(2), scoring='balanced_accuracy', n_jobs=1)
+    # Supply only outer-training observations and their inner grouping labels.
+    search.fit(X[tr], y[tr], groups=groups[tr])
+    # Score the held-out group after selection, averaging recalls across classes.
+    score = balanced_accuracy_score(y[te], search.predict(X[te]))
+    rows.append({'held_out_run': int(groups[te][0]), 'balanced_accuracy': score, 'components': search.best_params_['csp__n_components']})
+
+# %% [markdown]
+# ### Step 2.3 · trace the next operation
+#
+# **1.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **2.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
+# %%
+# Store this intermediate result so the next operation can be traced and inspected.
+results = pd.DataFrame(rows)
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print(results)
-fig,ax=plt.subplots()
-ax.bar(results.held_out_run.astype(str),results.balanced_accuracy)
-ax.axhline(.5,color='gray',linestyle='--',label='Balanced binary chance')
-ax.set(ylim=(0,1),xlabel='Held-out run',ylabel='Balanced accuracy',title='Nested run transfer · subject 1')
-ax.legend(); plt.show()
+
+# %% [markdown]
+# ### Step 2.4 · trace the next operation
+#
+# **1.** Create axes; plotting changes the display, not the analyzed data.
+#
+# **2.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **3.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **4.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **5.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **6.** Render the completed figure and inspect labels, units and the comparison.
+
+# %%
+# Create axes; plotting changes the display, not the analyzed data.
+fig, ax = plt.subplots()
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.bar(results.held_out_run.astype(str), results.balanced_accuracy)
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.axhline(0.5, color='gray', linestyle='--', label='Balanced binary chance')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.set(ylim=(0, 1), xlabel='Held-out run', ylabel='Balanced accuracy', title='Nested run transfer · subject 1')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.legend()
+# Render the completed figure and inspect labels, units and the comparison.
+plt.show()
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -249,112 +537,104 @@ ax.legend(); plt.show()
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
-# ## Independent practice
+# ## Practice 3 · Report scores without artificial precision
 #
-# Work through the tasks in order. Exercise 1 includes a small implementation check; passing it verifies the stated example, not every possible input. For the investigations, save a labeled figure or table and a short explanation. Use copies of data objects when changing preprocessing, and preserve any held-out evaluation partition.
+# **Try it:** Display the per-run scores and their mean/range. Write a conclusion limited to these runs.
 #
-# **Submission:** your completed notebook, the requested outputs, and a brief exit-ticket response. The notebook runs before exercises are completed; “pending” means your work is still required.
-
-# %% [markdown]
-# ### Exercise 1 · Group assertion
-#
-# Implement groups_disjoint to return whether train and test contain no shared group identifiers.
+# **My reasoning / hand calculation:** _write here._
 
 # %%
-def groups_disjoint(train_groups, test_groups):
-    # TODO: return a Boolean.
-    return None
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# Three run scores from one person are not three independent participant estimates.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
 
 # %%
-answer=groups_disjoint(['A','B'],['C'])
-if answer is not None:
-    assert answer
-    assert not groups_disjoint(['A','B'],['B','C'])
-    print('Group checks passed.')
-else: print('Exercise pending: implement groups_disjoint.')
+print(results[['held_out_run','balanced_accuracy','components']])
+print('Mean:',results.balanced_accuracy.mean())
+print('Range:',results.balanced_accuracy.min(),results.balanced_accuracy.max())
 
 # %% [markdown]
-# **Your response:**
+# ### Interpret and check
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# A valid conclusion describes variation in held-out-run performance for this participant under the stated selection procedure. It cannot establish population performance or a precise confidence interval across people. Do not choose the best outer fold and report it as the overall result.
 
 # %% [markdown]
-# ### Exercise 2 · Split specification
+# ## Practice 4 · Choose the evaluation unit for deployment
 #
-# Write three deployment scenarios and choose the correct grouping for each. Include one chronological scenario.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# **Try it:** Match three intended uses to appropriate partitions: new block today, another day, a new participant.
+#
+# **My reasoning / hand calculation:** _write here._
 
 # %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# **My answer:** _write a short explanation before continuing._
 
 # %% [markdown]
-# ### Exercise 3 · Pipeline audit
+# ### Hint
 #
-# List all fit calls in the real nested example and state exactly which observations each can see.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# The partition should withhold the source of variation you claim to generalize across.
 
 # %% [markdown]
-# **Your response:**
+# ### Worked solution
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# A new block calls for held-out runs or chronological blocks; another day calls for held-out sessions/days; a new person calls for held-out participants. If deployment is chronological, the training data must precede the evaluation data. Grouping alone does not enforce time direction.
 
 # %% [markdown]
-# ### Exercise 4 · Search-size experiment
+# ## Practice 5 · Respond to test-set reuse
 #
-# Repeat the numerical optimism experiment with 2, 10 and 100 candidates. Plot selection bias against candidate count.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# **Try it:** After seeing the final score, a team changes bands repeatedly until accuracy improves. What can the revised score legitimately be called?
+#
+# **My reasoning / hand calculation:** _write here._
 
 # %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# **My answer:** _write a short explanation before continuing._
 
 # %% [markdown]
-# ### Exercise 5 · Model comparison
+# ### Hint
 #
-# Compare two pipelines using identical outer splits. Report paired run differences and discuss why three runs cannot support broad population claims.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# The test observations have now influenced development.
 
 # %% [markdown]
-# **Your response:**
+# ### Worked solution
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# It is an exploratory result on reused evaluation data. Document the changes and obtain a new independent test before making a confirmatory claim. There is no correction that restores the original untouched status merely by renaming the partition.
 
 # %% [markdown]
-# ### Exercise 6 · Exit ticket
+# ## Practice 6 · explain the complete method
 #
-# Write a short reviewer response to a result that selected the best frequency band using the final test session.
+# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+#
+# **My explanation:** _write here._
 
 # %% [markdown]
-# **Your response:**
+# ### Worked answer · compare your reasoning
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# The split defines the future-use claim. Inner validation selects a configuration; outer testing assesses that selection procedure. Every learned transformation respects the boundary. Repeated use of a test result for design turns it into development data.
+
+# %% [markdown]
+# ## If your result is different
+#
+# If inner splits fail, count distinct groups inside the outer-training set. Reduce the search/fold count appropriately; never borrow the outer test group to make a fold possible.
+#
+# If a dataset download fails, read the error and retry when the public host is reachable; do not silently replace real data with simulated values. If a notebook cell refers to an undefined variable, restart the kernel and run the preceding cells in order. Numerical scores can vary slightly with library versions; record versions and compare the protocol before concluding that a method changed.
+
+# %% [markdown]
+# ## Can you now do this independently?
+#
+# - Explain each arrow in the lesson map and the units at its boundaries.
+# - Reproduce the hand calculation and point to its corresponding code.
+# - Interpret the figures without turning a descriptive pattern into an unsupported causal claim.
+# - Complete a practice task before reading its worked solution.
+# - State which choices were fixed and which were learned from calibration data.
+#
+# If one item is unclear, return to the associated figure or practice section before the next lesson.
 
 # %% [markdown]
 # ## Next steps and sources

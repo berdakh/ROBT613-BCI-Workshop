@@ -11,6 +11,21 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## How to study this notebook
+#
+# This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
+#
+# 1. Read the question and calculate a small example on paper.
+# 2. Write your prediction before running the next code cell.
+# 3. Try the practice task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 5. Change one parameter and explain what the result means.
+#
+# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+#
+# **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
+
+# %% [markdown]
 # ## The question for today
 #
 # A student sees a positive bump around 300 ms and calls it a working speller. Your task is to slow down that conclusion: identify what was flashed, which flashes were attended, how the EEG was aligned, and what averaging hides. By the end, you will have a defensible feature matrix, not yet a character decoder.
@@ -22,7 +37,7 @@
 # - Construct temporal-window features and keep trial/session identifiers aligned.
 # - Interpret an ERP plot without selecting features on held-out evaluation data.
 #
-# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The worked examples use small controlled arrays; the later walkthrough uses the dataset stated above. End-of-lesson exercises contain editable workspaces. A pending exercise message is expected until you complete its function.
+# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The first worked examples use controlled arrays; the later walkthrough and applied practice use the dataset stated above. Practice workspaces, hints and worked solutions are placed beside the relevant methods. Complete your attempt before continuing to the reference solution.
 
 # %% [markdown]
 # ## Setup
@@ -60,6 +75,49 @@ print({p: metadata.version(p) for p in ['mne','moabb','numpy','scipy','scikit-le
 print('Dataset cache:', DATA_ROOT)
 
 # %% [markdown]
+# ## Visual route through the lesson
+#
+# Follow the arrows before running the analysis. For each box, say what the input represents, what changes, and what must be preserved.
+
+# %%
+# Drawing code for the lesson map; no analysis data are transformed here.
+from matplotlib.patches import FancyBboxPatch
+map_steps=['Attend one symbol\nrow/column flashes', 'EEG + flash labels\nkeep session IDs', 'Filter and epoch\n0–0.8 seconds', 'Compare ERPs\ntarget / non-target', 'Window means\ntrial × feature']
+fig,map_ax=plt.subplots(figsize=(12,3.1),constrained_layout=True)
+map_ax.set(xlim=(-.1,12),ylim=(-.3,2.4));map_ax.axis('off')
+for map_i,map_label in enumerate(map_steps):
+    map_x=map_i*2.4
+    map_ax.add_patch(FancyBboxPatch((map_x,.45),2.05,1.1,
+        boxstyle='round,pad=0.08',facecolor='#edf3f7',edgecolor='#35688a',linewidth=1.5))
+    map_ax.text(map_x+1.025,1.02,map_label,ha='center',va='center',fontsize=10)
+    map_ax.text(map_x+1.025,1.83,str(map_i+1),ha='center',weight='bold',color='#35688a')
+    if map_i<4:map_ax.annotate('',xy=(map_x+2.3,1),xytext=(map_x+2.13,1),arrowprops=dict(arrowstyle='->',lw=1.5))
+map_ax.text(5.9,-.08,'Read left to right. Keep units, observation identities and evaluation boundaries attached to the data.',ha='center',fontsize=10)
+map_ax.set_title('Lesson 01 · from measurement to an interpretable result',fontsize=14,pad=12)
+plt.show()
+
+# %% [markdown]
+# **Read the map:** the arrows represent processing order, not permission to fit on all observations. When a stage learns parameters, keep evaluation data outside that fit. The map is also available as text: Attend one symbol: row/column flashes → EEG + flash labels: keep session IDs → Filter and epoch: 0–0.8 seconds → Compare ERPs: target / non-target → Window means: trial × feature.
+
+# %% [markdown]
+# ## Symbols and a calculation by hand
+#
+# $X_{nct}$: trial $n$, channel $c$, sample $t$; $N_k$: trials of class $k$; $W$: selected time samples.
+#
+# ### Derive the operation before calling the library
+#
+# Start with a class-specific average $\bar X_{kct}=N_k^{-1}\sum_{n:y_n=k}X_{nct}$. If independent noise has variance $\sigma^2$, the variance of its mean is $N_k\sigma^2/N_k^2=\sigma^2/N_k$; the standard deviation is therefore $\sigma/\sqrt{N_k}$. Four times as many trials halves this noise standard deviation, not quarters it.
+#
+# For one trial, one channel and window samples $[2,4,6]\,\mu V$, the temporal feature is $(2+4+6)/3=4\,\mu V$. Repeating this operation for $C$ channels and $J$ windows produces $CJ$ columns. With 16 channels and four windows, expect 64 features per trial. The trial axis is never averaged away before classification.
+
+# %% [markdown]
+# ### Your paper calculation
+#
+# Rewrite one equation with the numerical example above. Name the input units and output units, and identify the axis being reduced or transformed.
+#
+# **My calculation:** _write your intermediate steps here before continuing._
+
+# %% [markdown]
 # ### Begin with the experiment, not the classifier
 #
 # Imagine a 6×6 grid. A person attends one symbol while rows and columns intensify. A flash is a target if its group contains that symbol. In a complete 12-group repetition, two groups are targets. The target rate is therefore $2/12=1/6$ for that idealized schedule. This explains class imbalance before looking at any machine-learning output. It does not tell us the complete timing or sequence metadata of a particular file; those must come from its experimental record.
@@ -79,11 +137,43 @@ print('Dataset cache:', DATA_ROOT)
 # `P300(fmin=0.5, fmax=20, tmin=0, tmax=0.8, resample=128)` is not merely a file download. It requests filtering, epoch extraction and resampling. Applying another filter without recognizing this would change the pipeline twice. `return_epochs=True` retains MNE metadata and gives volt-valued EEG. Always print the returned labels, shapes and metadata. Keep `metadata_p300` alongside the arrays: a shuffled feature table without a correspondingly shuffled session column silently corrupts evaluation.
 
 # %% [markdown]
-# ### Worked example · count target flashes
+# ## Visual intuition · Connect the speller grid to the flash timeline
+#
+# **Try it:** Count the highlighted row and column. Why are two of twelve groups targets in one idealized repetition?
+
+# %%
+vis_grid=np.array(list('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')).reshape(6,6)
+fig,axes=plt.subplots(1,2,figsize=(11,4),constrained_layout=True)
+vis_target=(2,4)
+vis_mask=np.zeros((6,6));vis_mask[2,:]=1;vis_mask[:,4]=1;vis_mask[2,4]=2
+axes[0].imshow(vis_mask,cmap='Blues',vmin=0,vmax=2)
+for row in range(6):
+    for col in range(6):axes[0].text(col,row,vis_grid[row,col],ha='center',va='center',color='white' if (row,col)==vis_target else 'black')
+axes[0].set(xticks=range(6),yticks=range(6),xlabel='Column',ylabel='Row',title='Attend Q: row 2 and column 4 contain it')
+vis_flash=np.arange(12);vis_targets=np.isin(vis_flash,[2,10])
+axes[1].bar(vis_flash,np.ones(12),color=['#d28a16' if x else '#497fa3' for x in vis_targets])
+for k in [2,10]:axes[1].text(k,1.05,'Target',ha='center',rotation=90,va='bottom')
+axes[1].set(xticks=range(12),xticklabels=[f'R{i}' for i in range(6)]+[f'C{i}' for i in range(6)],ylim=(0,1.65),yticks=[],xlabel='Flash group (illustrative order)',title='Two target flashes / twelve groups')
+plt.show()
+
+# %% [markdown]
+# ### Worked interpretation
+#
+# Q is at zero-based row 2, column 4. A row flash and a column flash both contain Q, but each flash includes other characters too. Character selection requires combining evidence with flash identity. This diagram is a protocol illustration, not the downloaded dataset’s actual flash schedule.
+
+# %% [markdown]
+# ## Guided practice 1 · count target flashes
 #
 # Construct one idealized repetition for a target at row 2, column 4 (zero-based). This is a small experiment-design model, not a reconstruction of the downloaded recording.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_flash_groups=np.arange(12)
@@ -94,16 +184,25 @@ print('Target fraction:',demo_target.mean())
 print('Always non-target accuracy:',1-demo_target.mean())
 
 # %% [markdown]
-# **Read the result.** The easy-looking 83.3% majority accuracy follows from the stimulus schedule. It is not evidence that EEG contains useful predictive information.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# The easy-looking 83.3% majority accuracy follows from the stimulus schedule. It is not evidence that EEG contains useful predictive information.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Worked example · derive window averaging
+# ## Guided practice 2 · derive window averaging
 #
 # For samples $[2,4,6]$ µV in a window, the mean is 4 µV. In a batch, compute that operation independently for every trial and channel. The output must lose the time axis and keep the other two.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_cube=np.array([[[2.,4.,6.,100.],[1.,3.,5.,100.]],
@@ -116,16 +215,25 @@ assert demo_features.shape==(2,2)
 assert np.isclose(demo_features[0,0]*1e6,4)
 
 # %% [markdown]
-# **Read the result.** The large value at the excluded endpoint must not contribute. State whether a window includes its right endpoint; otherwise two adjacent windows may accidentally count a sample twice.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# The large value at the excluded endpoint must not contribute. State whether a window includes its right endpoint; otherwise two adjacent windows may accidentally count a sample twice.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Guided experiment · latency jitter changes the average
+# ## Guided practice 3 · latency jitter changes the average
 #
 # Generate positive responses with the same amplitude but different latencies. Predict whether averaging preserves peak height. Use the same y-axis for the two conditions.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_times=np.linspace(0,.8,200)
@@ -139,16 +247,25 @@ ax.set(xlabel='Time (s)',ylabel='Amplitude (µV)',title='SIMULATION · identical
 ax.legend();plt.show()
 
 # %% [markdown]
-# **Read the result.** A broader, lower ERP can arise without reducing the amplitude of any single response. This is one reason to inspect single-trial images as well as averages.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# A broader, lower ERP can arise without reducing the amplitude of any single response. This is one reason to inspect single-trial images as well as averages.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Guided experiment · compare mean and maximum estimators
+# ## Guided practice 4 · compare mean and maximum estimators
 #
 # With independent zero-mean noise, the window mean is centered near zero but the maximum tends to be positive. This illustrates selection bias in a peak search.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 noise_windows=rng.normal(0,1,(1000,30))
@@ -159,9 +276,46 @@ ax.set(xlabel='Estimated amplitude (arbitrary units)',ylabel='Simulation count',
 ax.legend();plt.show()
 
 # %% [markdown]
-# **Read the result.** A positive maximum is expected even with no signal. A feature can be useful for prediction without being an unbiased estimate of ERP amplitude, but that distinction must be explicit.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# A positive maximum is expected even with no signal. A feature can be useful for prediction without being an unbiased estimate of ERP amplitude, but that distinction must be explicit.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
+
+# %% [markdown]
+# ## Practice 1 · Implement a temporal feature
+#
+# Complete `window_mean` below. Use a half-open interval [start, stop). Preserve the trial and channel axes and reject an empty window with a useful error.
+#
+# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+
+# %%
+def window_mean(data, times, start, stop):
+    # TODO: data is trials × channels × time; return trials × channels.
+    return None
+
+# %% [markdown]
+# ### Hint
+#
+# Use the equation above and keep the trial/channel axes intact unless the requested output removes them. Test the smallest example by hand first.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Compare this implementation with your attempt. The next cell checks the reference answer on a concrete numerical case.
+
+# %%
+def window_mean(data,times,start,stop):
+    mask=(times>=start)&(times<stop)
+    if not mask.any(): raise ValueError('Empty feature window')
+    return data[:,:,mask].mean(-1)
+
+# %%
+answer=window_mean(demo_cube,np.array([.2,.3,.4,.5]),.2,.5)
+if answer is not None:
+    np.testing.assert_allclose(answer,np.array([[4,3],[2,2]])*1e-6); print('Window checks passed.')
+else:
+    print('Exercise pending: implement window_mean.')
 
 # %% [markdown]
 # ## Apply the ideas to the complete pipeline
@@ -185,19 +339,62 @@ ax.legend();plt.show()
 #
 # MOABB supplies an MNE Epochs object with labels and trial metadata. The P300 paradigm specifies filtering, epoch limits and resampling in one place. The label conversion explicitly identifies the target class; inspect the printed label counts before proceeding. This dataset is a public speller dataset accessed through MOABB, not a built-in MNE competition archive.
 
+# %% [markdown]
+# ### Step 1.1 · trace the next operation
+#
+# **1.** Import the named tools used in this step.
+#
+# **2.** Import the named tools used in this step.
+#
+# **3.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **4.** Declare the public P300 preprocessing and epoching contract before loading.
+#
+# **5.** Expose the numerical array; EEG values are in volts and the final axis is time.
+#
+# **6.** Make an explicit NumPy vector while preserving its current row order.
+#
+# **7.** Expose the numerical array; EEG values are in volts and the final axis is time.
+
 # %%
+# Import the named tools used in this step.
 from moabb.datasets import BNCI2014_009
+# Import the named tools used in this step.
 from moabb.paradigms import P300
+# Store this intermediate result so the next operation can be traced and inspected.
 dataset = BNCI2014_009()
+# Declare the public P300 preprocessing and epoching contract before loading.
 paradigm = P300(fmin=0.5, fmax=20, tmin=0, tmax=0.8, resample=128)
-epochs, labels, metadata_p300 = paradigm.get_data(
-    dataset=dataset, subjects=[1], return_epochs=True)
+# Expose the numerical array; EEG values are in volts and the final axis is time.
+epochs, labels, metadata_p300 = paradigm.get_data(dataset=dataset, subjects=[1], return_epochs=True)
+# Make an explicit NumPy vector while preserving its current row order.
 y = (np.asarray(labels) == 'Target').astype(int)
-X = epochs.get_data(copy=True)  # volts; epochs x channels x samples
+# Expose the numerical array; EEG values are in volts and the final axis is time.
+X = epochs.get_data(copy=True)
+
+# %% [markdown]
+# ### Step 1.2 · trace the next operation
+#
+# **1.** Keep one label or grouping identifier per trial in exactly the same order as the EEG array.
+#
+# **2.** Check a required invariant now so a silent alignment or numerical error cannot propagate.
+#
+# **3.** Check a required invariant now so a silent alignment or numerical error cannot propagate.
+#
+# **4.** Make an explicit NumPy vector while preserving its current row order.
+#
+# **5.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
+# %%
+# Keep one label or grouping identifier per trial in exactly the same order as the EEG array.
 session = metadata_p300['session'].astype(str).to_numpy()
+# Check a required invariant now so a silent alignment or numerical error cannot propagate.
 assert X.shape[0] == len(y) == len(session)
+# Check a required invariant now so a silent alignment or numerical error cannot propagate.
 assert set(np.unique(y)) == {0, 1}
+# Make an explicit NumPy vector while preserving its current row order.
 print(pd.crosstab(session, np.asarray(labels)))
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print('Shape:', X.shape, 'sampling:', epochs.info['sfreq'], 'Hz')
 
 # %% [markdown]
@@ -208,20 +405,84 @@ print('Shape:', X.shape, 'sampling:', epochs.info['sfreq'], 'Hz')
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 2 · Audit class imbalance with actual counts
+#
+# **Try it:** Calculate target prevalence and the accuracy of always predicting non-target in each session. Do this from labels rather than assuming the idealized 1/6 rate.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %%
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# Group by the session vector that has one entry per trial.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
+
+# %%
+lab_counts=pd.DataFrame({'session':session,'target':y}).groupby('session').target.agg(['sum','count'])
+lab_counts['target_fraction']=lab_counts['sum']/lab_counts['count']
+lab_counts['always_non_target_accuracy']=1-lab_counts['target_fraction']
+print(lab_counts)
+
+# %% [markdown]
+# ### Interpret and check
+#
+# The table is a dataset audit. The idealized schedule motivates the expected imbalance, but the actual counts are the evidence. A high majority-class accuracy does not mean targets can be detected.
+
+# %% [markdown]
 # ## Inspect the ERP
 # Plot the nearest available parietal channel. These averages are descriptive; do not choose a classification time window using the held-out session.
 #
 # We select a parietal sensor by its name and average each class separately. Multiplication by one million changes only the displayed units. The shaded region marks a predeclared response interval, not a region selected because the plotted difference happened to be largest.
 
+# %% [markdown]
+# ### Step 2.1 · trace the next operation
+#
+# **1.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **2.** Store this intermediate result so the next operation can be traced and inspected.
+
 # %%
+# Store this intermediate result so the next operation can be traced and inspected.
 channel = 'Pz' if 'Pz' in epochs.ch_names else epochs.ch_names[-1]
+# Store this intermediate result so the next operation can be traced and inspected.
 c = epochs.ch_names.index(channel)
+
+# %% [markdown]
+# ### Step 2.2 · trace the next operation
+#
+# **1.** Create axes; plotting changes the display, not the analyzed data.
+#
+# **2.** Plot each named condition on comparable axes without changing its observations.
+#
+# **3.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **4.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **5.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **6.** Render the completed figure and inspect labels, units and the comparison.
+
+# %%
+# Create axes; plotting changes the display, not the analyzed data.
 fig, ax = plt.subplots()
-for label, name in [(0,'Non-target'),(1,'Target')]:
-    ax.plot(epochs.times, X[y==label,c].mean(0)*1e6, label=f'{name} (n={(y==label).sum()})')
-ax.axvspan(.25,.6,color='gray',alpha=.12,label='Predeclared feature window')
-ax.set(xlabel='Time after flash (s)',ylabel='Voltage (µV)',title=f'Subject 1 · {channel} · descriptive ERP')
-ax.legend(); plt.show()
+# Plot each named condition on comparable axes without changing its observations.
+for label, name in [(0, 'Non-target'), (1, 'Target')]:
+    ax.plot(epochs.times, X[y == label, c].mean(0) * 1000000.0, label=f'{name} (n={(y == label).sum()})')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.axvspan(0.25, 0.6, color='gray', alpha=0.12, label='Predeclared feature window')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.set(xlabel='Time after flash (s)', ylabel='Voltage (µV)', title=f'Subject 1 · {channel} · descriptive ERP')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.legend()
+# Render the completed figure and inspect labels, units and the comparison.
+plt.show()
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -231,18 +492,55 @@ ax.legend(); plt.show()
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 3 · Interpret a small average without overclaiming
+#
+# **Try it:** Give two explanations for a small target ERP that do not imply the brain produced no response.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %% [markdown]
+# **My answer:** _write a short explanation before continuing._
+
+# %% [markdown]
+# ### Hint
+#
+# Separate single-trial amplitude from alignment and noise.
+
+# %% [markdown]
+# ### Worked solution
+#
+# One explanation is variable response latency: positive peaks occur at different times and broaden the average. Another is heterogeneous responses or limited retained trials. Neither explanation is proven by the mean alone; inspect trial-level data and the recording protocol before choosing among them.
+
+# %% [markdown]
 # ## Extract interpretable features
 # Use several predeclared windows so a classifier can combine channels and latencies.
 #
 # Each window contributes one mean per channel, then concatenation creates a trial × feature table. This compression retains coarse temporal structure while avoiding one independent model weight for every sample. The half-open window masks keep adjacent windows from double-counting boundary samples.
 
+# %% [markdown]
+# ### Step 3.1 · trace the next operation
+#
+# **1.** Make the analysis choice visible and fixed before inspecting evaluation performance.
+#
+# **2.** Join arrays along the declared axis; preserve the trial ordering.
+#
+# **3.** Check a required invariant now so a silent alignment or numerical error cannot propagate.
+#
+# **4.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+#
+# **5.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+
 # %%
-windows = [(0.1,0.25),(0.25,0.4),(0.4,0.6),(0.6,0.8)]
-features = np.concatenate([X[:,:, (epochs.times>=a)&(epochs.times<b)].mean(-1)
-                           for a,b in windows], axis=1)
-assert features.shape == (len(y), len(epochs.ch_names)*len(windows))
+# Make the analysis choice visible and fixed before inspecting evaluation performance.
+windows = [(0.1, 0.25), (0.25, 0.4), (0.4, 0.6), (0.6, 0.8)]
+# Join arrays along the declared axis; preserve the trial ordering.
+features = np.concatenate([X[:, :, (epochs.times >= a) & (epochs.times < b)].mean(-1) for a, b in windows], axis=1)
+# Check a required invariant now so a silent alignment or numerical error cannot propagate.
+assert features.shape == (len(y), len(epochs.ch_names) * len(windows))
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
 print('Features:', features.shape, 'target fraction:', y.mean())
-print('Always non-target accuracy:', (y==0).mean(), 'balanced accuracy: 0.5')
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+print('Always non-target accuracy:', (y == 0).mean(), 'balanced accuracy: 0.5')
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -252,111 +550,86 @@ print('Always non-target accuracy:', (y==0).mean(), 'balanced accuracy: 0.5')
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
-# ## Independent practice
+# ## Practice 4 · Build one feature by hand and compare with the matrix
 #
-# Work through the tasks in order. Exercise 1 includes a small implementation check; passing it verifies the stated example, not every possible input. For the investigations, save a labeled figure or table and a short explanation. Use copies of data objects when changing preprocessing, and preserve any held-out evaluation partition.
+# **Try it:** For the first trial and first channel, compute the first window mean. Find the same value in features.
 #
-# **Submission:** your completed notebook, the requested outputs, and a brief exit-ticket response. The notebook runs before exercises are completed; “pending” means your work is still required.
-
-# %% [markdown]
-# ### Exercise 1 · Implement a temporal feature
-#
-# Complete `window_mean` below. Use a half-open interval [start, stop). Preserve the trial and channel axes and reject an empty window with a useful error.
+# **My reasoning / hand calculation:** _write here._
 
 # %%
-def window_mean(data, times, start, stop):
-    # TODO: data is trials × channels × time; return trials × channels.
-    return None
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# The first block of columns corresponds to the first window; channel order follows epochs.ch_names.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
 
 # %%
-answer=window_mean(demo_cube,np.array([.2,.3,.4,.5]),.2,.5)
-if answer is not None:
-    np.testing.assert_allclose(answer,np.array([[4,3],[2,2]])*1e-6); print('Window checks passed.')
-else:
-    print('Exercise pending: implement window_mean.')
+lab_mask=(epochs.times>=windows[0][0])&(epochs.times<windows[0][1])
+lab_value=X[0,0,lab_mask].sum()/lab_mask.sum()
+print('Channel:',epochs.ch_names[0],'window:',windows[0],'samples:',lab_mask.sum())
+print('Manual / matrix feature (µV):',lab_value*1e6,features[0,0]*1e6)
+assert np.isclose(lab_value,features[0,0])
 
 # %% [markdown]
-# **Your response:**
+# ### Interpret and check
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# The sum divided by the selected sample count reproduces the feature. A temporal mean removes detailed within-window timing while retaining the average voltage. It does not average across trials or channels.
 
 # %% [markdown]
-# ### Exercise 2 · Audit the real dataset
+# ## Practice 5 · Keep flash and character units separate
 #
-# Create a table of target/non-target counts for every session. Compute target fraction and majority-class accuracy for each session. Explain why the label proportions matter.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# **Try it:** Can the target/non-target feature matrix alone produce a defensible real spelling accuracy? List the missing information.
+#
+# **My reasoning / hand calculation:** _write here._
 
 # %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# **My answer:** _write a short explanation before continuing._
 
 # %% [markdown]
-# ### Exercise 3 · Single trial versus average
+# ### Hint
 #
-# Plot five target trials at Pz alongside their average. Use microvolts and a common axis. Describe variability that the average hides.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# Character aggregation needs the experimental sequence, not just a binary label.
 
 # %% [markdown]
-# **Your response:**
+# ### Worked solution
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# No. It needs the identity of each flashed group, the intended character, repetition boundaries and character-selection boundaries. The real binary detector can be evaluated without all of that metadata, but character accuracy and typing speed cannot be inferred from binary AUC.
 
 # %% [markdown]
-# ### Exercise 4 · Feature comparison
+# ## Practice 6 · explain the complete method
 #
-# Using calibration sessions only, compare 0.25–0.40 s and 0.40–0.60 s means. Report class distributions rather than choosing the window with the prettiest full-dataset ERP.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+#
+# **My explanation:** _write here._
 
 # %% [markdown]
-# **Your response:**
+# ### Worked answer · compare your reasoning
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# An ERP is a class-conditional average, not a guarantee of reliable single-trial detection. A feature matrix preserves trials while compressing each waveform into pre-specified summaries. Binary flash labels alone do not provide all metadata required for real character decoding.
 
 # %% [markdown]
-# ### Exercise 5 · Timing sensitivity
+# ## If your result is different
 #
-# Shift the synthetic response by 100 ms and recompute the fixed-window feature. Explain the implication of an uncorrected stimulus-marker delay.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# If labels contain no targets, inspect the returned label strings before converting them to 0/1. If feature windows are empty, inspect epochs.times and the half-open masks.
+#
+# If a dataset download fails, read the error and retry when the public host is reachable; do not silently replace real data with simulated values. If a notebook cell refers to an undefined variable, restart the kernel and run the preceding cells in order. Numerical scores can vary slightly with library versions; record versions and compare the protocol before concluding that a method changed.
 
 # %% [markdown]
-# **Your response:**
+# ## Can you now do this independently?
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
-
-# %% [markdown]
-# ### Exercise 6 · Exit ticket
+# - Explain each arrow in the lesson map and the units at its boundaries.
+# - Reproduce the hand calculation and point to its corresponding code.
+# - Interpret the figures without turning a descriptive pattern into an unsupported causal claim.
+# - Complete a practice task before reading its worked solution.
+# - State which choices were fixed and which were learned from calibration data.
 #
-# In 150 words, distinguish an ERP contrast, flash detection and character decoding. List the additional metadata needed for the last task.
-
-# %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# If one item is unclear, return to the associated figure or practice section before the next lesson.
 
 # %% [markdown]
 # ## Next steps and sources

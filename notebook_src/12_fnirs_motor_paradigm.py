@@ -11,6 +11,21 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## How to study this notebook
+#
+# This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
+#
+# 1. Read the question and calculate a small example on paper.
+# 2. Write your prediction before running the next code cell.
+# 3. Try the practice task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 5. Change one parameter and explain what the result means.
+#
+# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+#
+# **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
+
+# %% [markdown]
 # ## The question for today
 #
 # A motor task changes measured light intensity rather than voltage. We follow that measurement through optical density and hemoglobin conversion, then compare its slow response with the EEG paradigms studied earlier.
@@ -22,7 +37,7 @@
 # - Recognize coupling and motion problems before interpreting averages.
 # - Relate hemodynamic latency to BCI decision timing.
 #
-# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The worked examples use small controlled arrays; the later walkthrough uses the dataset stated above. End-of-lesson exercises contain editable workspaces. A pending exercise message is expected until you complete its function.
+# **How to work:** predict each result before running it, execute one cell at a time, and write a short interpretation. The first worked examples use controlled arrays; the later walkthrough and applied practice use the dataset stated above. Practice workspaces, hints and worked solutions are placed beside the relevant methods. Complete your attempt before continuing to the reference solution.
 
 # %% [markdown]
 # ## Setup
@@ -58,6 +73,49 @@ plt.rcParams.update({'figure.figsize': (9, 4), 'font.size': 11,
 import importlib.metadata as metadata
 print({p: metadata.version(p) for p in ['mne','moabb','numpy','scipy','scikit-learn']})
 print('Dataset cache:', DATA_ROOT)
+
+# %% [markdown]
+# ## Visual route through the lesson
+#
+# Follow the arrows before running the analysis. For each box, say what the input represents, what changes, and what must be preserved.
+
+# %%
+# Drawing code for the lesson map; no analysis data are transformed here.
+from matplotlib.patches import FancyBboxPatch
+map_steps=['Light intensity\ntwo wavelengths', 'Optical density\nnegative log ratio', 'Coupling quality\nmark bad channels', 'HbO / HbR estimate\nBeer–Lambert law', 'Slow task response\nlong epochs']
+fig,map_ax=plt.subplots(figsize=(12,3.1),constrained_layout=True)
+map_ax.set(xlim=(-.1,12),ylim=(-.3,2.4));map_ax.axis('off')
+for map_i,map_label in enumerate(map_steps):
+    map_x=map_i*2.4
+    map_ax.add_patch(FancyBboxPatch((map_x,.45),2.05,1.1,
+        boxstyle='round,pad=0.08',facecolor='#edf3f7',edgecolor='#35688a',linewidth=1.5))
+    map_ax.text(map_x+1.025,1.02,map_label,ha='center',va='center',fontsize=10)
+    map_ax.text(map_x+1.025,1.83,str(map_i+1),ha='center',weight='bold',color='#35688a')
+    if map_i<4:map_ax.annotate('',xy=(map_x+2.3,1),xytext=(map_x+2.13,1),arrowprops=dict(arrowstyle='->',lw=1.5))
+map_ax.text(5.9,-.08,'Read left to right. Keep units, observation identities and evaluation boundaries attached to the data.',ha='center',fontsize=10)
+map_ax.set_title('Lesson 12 · from measurement to an interpretable result',fontsize=14,pad=12)
+plt.show()
+
+# %% [markdown]
+# **Read the map:** the arrows represent processing order, not permission to fit on all observations. When a stage learns parameters, keep evaluation data outside that fit. The map is also available as text: Light intensity: two wavelengths → Optical density: negative log ratio → Coupling quality: mark bad channels → HbO / HbR estimate: Beer–Lambert law → Slow task response: long epochs.
+
+# %% [markdown]
+# ## Symbols and a calculation by hand
+#
+# $I/I_0$: relative light intensity; $\Delta OD$: optical-density change; $E$: extinction matrix; $L$: effective pathlength.
+#
+# ### Derive the operation before calling the library
+#
+# Optical density is $\Delta OD=-\ln(I/I_0)$. Half the reference intensity gives $-\ln0.5=\ln2\approx0.693$; equal intensity gives zero. This logarithm requires positive intensity values.
+#
+# The simplified two-wavelength system is $\Delta OD=LE\Delta c$. With $E=[[2,1],[1,3]]$, $L=1$ and $\Delta c=[0.4,-0.2]^T$, the observation is $[0.6,-0.2]^T$. Solving recovers the concentration vector. Assuming $L=2$ instead halves the estimate. These coefficients are an algebra example, not biological extinction constants; the real MNE conversion uses wavelength metadata.
+
+# %% [markdown]
+# ### Your paper calculation
+#
+# Rewrite one equation with the numerical example above. Name the input units and output units, and identify the axis being reduced or transformed.
+#
+# **My calculation:** _write your intermediate steps here before continuing._
 
 # %% [markdown]
 # ### A different measurement of brain-related activity
@@ -96,27 +154,67 @@ print('Dataset cache:', DATA_ROOT)
 # Sensor-level HbO/HbR averages are the endpoint here. No optical tomography or EEG source imaging is included. A future fNIRS BCI would additionally require trial-level features, a training-only model and evaluation on independent runs or sessions.
 
 # %% [markdown]
-# ### Worked example · intensity ratios
+# ## Visual intuition · Follow light attenuation through the logarithm
+#
+# **Try it:** Predict the sign of optical-density change when intensity is below its reference.
+
+# %%
+vis_ratio=np.linspace(.2,2,200)
+fig,axes=plt.subplots(1,2,figsize=(11,4),constrained_layout=True)
+axes[0].plot(vis_ratio,-np.log(vis_ratio),color='#35688a')
+axes[0].axhline(0,color='black',lw=.8);axes[0].axvline(1,color='black',ls='--')
+axes[0].scatter([.5,1,2],-np.log([.5,1,2]),color='#b87714')
+axes[0].set(xlabel='Intensity / reference intensity',ylabel='Optical-density change',title='Lower intensity → greater attenuation')
+vis_E=np.array([[2,1],[1,3]])
+axes[1].imshow(vis_E,cmap='Blues',vmin=0,vmax=3)
+for i in range(2):
+    for j in range(2):axes[1].text(j,i,str(vis_E[i,j]),ha='center',va='center',color='black',bbox=dict(facecolor='white',alpha=.7,edgecolor='none'))
+axes[1].set(xticks=[0,1],xticklabels=['HbO coefficient','HbR coefficient'],yticks=[0,1],yticklabels=['Wavelength 1','Wavelength 2'],title='Illustrative mixing matrix E (not physical constants)')
+plt.show()
+
+# %% [markdown]
+# ### Worked interpretation
+#
+# The logarithm turns an intensity ratio into an additive attenuation change. Two wavelength equations can separate two chromophore changes only under the stated model and optical assumptions; bad coupling and motion remain measurement problems.
+
+# %% [markdown]
+# ## Guided practice 1 · intensity ratios
 #
 # Convert three intensity ratios to optical density and predict the sign.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_ratio=np.array([.8,1.,1.2])
 print(pd.DataFrame({'Intensity ratio':demo_ratio,'Delta optical density':-np.log(demo_ratio)}))
 
 # %% [markdown]
-# **Read the result.** A reduction in transmitted intensity corresponds to positive optical density change. Units and sign must be tracked across transformations.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# A reduction in transmitted intensity corresponds to positive optical density change. Units and sign must be tracked across transformations.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Worked example · recover two concentrations
+# ## Guided practice 2 · recover two concentrations
 #
 # Solve a known two-component mixture using arbitrary coefficients.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 demo_E=np.array([[2.,1.],[1.,3.]])
@@ -127,32 +225,50 @@ print('Recovered:',demo_recovered)
 assert np.allclose(demo_recovered,demo_concentration)
 
 # %% [markdown]
-# **Read the result.** Two independent wavelength equations can separate two chromophore changes in this simplified model. Nearly dependent equations would make the estimate unstable.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Two independent wavelength equations can separate two chromophore changes in this simplified model. Nearly dependent equations would make the estimate unstable.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Guided experiment · pathlength scaling
+# ## Guided practice 3 · pathlength scaling
 #
 # Solve the same optical-density observation using two assumed path lengths.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 for assumed_length in [1.,2.]:
     print('Length:',assumed_length,'Estimated change:',np.linalg.solve(assumed_length*demo_E,demo_od))
 
 # %% [markdown]
-# **Read the result.** Doubling the assumed effective path length halves the estimated concentration change. Report the convention with any amplitude claim.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Doubling the assumed effective path length halves the estimated concentration change. Report the convention with any amplitude claim.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
 
 # %% [markdown]
-# ### Checkpoint · response timescale
+# ## Guided practice 4 · response timescale
 #
 # Compare sample counts for a 0.8 s electrical-response interval and a 20 s hemodynamic interval at their respective illustrative sampling rates.
 #
-# **Before running:** state your prediction and the assumption behind it.
+# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+#
+# **My prediction:** _write here._
+#
+# **Hint:** trace one sample, one channel or one trial through the calculation before considering the full array.
+
+# %% [markdown]
+# ### Worked solution · read one statement at a time
 
 # %%
 print('EEG example:',round(.8*128),'samples')
@@ -160,9 +276,43 @@ print('fNIRS example:',round(20*10),'samples')
 print('Observation durations:',.8,'s versus',20,'s')
 
 # %% [markdown]
-# **Read the result.** Similar array lengths can represent very different physiological timescales. Interpret duration using the sampling rate, not the number of columns.
+# ### Why this result makes sense
 #
-# **Pause and explain:** point to one computed value that supports this interpretation.
+# Similar array lengths can represent very different physiological timescales. Interpret duration using the sampling rate, not the number of columns.
+#
+# **Check your understanding:** change one numerical parameter, predict the direction of change, and rerun. If the result disagrees, inspect units and axes before changing the method.
+
+# %% [markdown]
+# ## Practice 1 · Optical-density function
+#
+# Implement optical_density_change for strictly positive intensity and reference values.
+#
+# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+
+# %%
+def optical_density_change(intensity, reference):
+    # TODO: natural logarithm of the relative intensity.
+    return None
+
+# %% [markdown]
+# ### Hint
+#
+# Use the equation above and keep the trial/channel axes intact unless the requested output removes them. Test the smallest example by hand first.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Compare this implementation with your attempt. The next cell checks the reference answer on a concrete numerical case.
+
+# %%
+def optical_density_change(intensity,reference):
+    return -np.log(np.asarray(intensity)/reference)
+
+# %%
+answer=optical_density_change(np.array([.5,1.,2.]),1.)
+if answer is not None:
+    assert np.allclose(answer,[np.log(2),0,-np.log(2)]); print('Optical-density checks passed.')
+else: print('Exercise pending: implement optical_density_change.')
 
 # %% [markdown]
 # ## Apply the ideas to the complete pipeline
@@ -184,21 +334,67 @@ print('Observation durations:',.8,'s versus',20,'s')
 #
 # Inspect optical channels and source-detector distances before converting intensity to optical density. Coupling measures flag questionable channels, and Beer–Lambert conversion uses the recorded wavelengths and an explicit pathlength factor.
 
+# %% [markdown]
+# ### Step 1.1 · trace the next operation
+#
+# **1.** Import the named tools used in this step.
+#
+# **2.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **3.** Read optical intensity and wavelength/optode metadata together.
+#
+# **4.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **5.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **6.** Read optode separation distances; this is sensor geometry, not source imaging.
+#
+# **7.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+
 # %%
-from mne.preprocessing.nirs import (optical_density,beer_lambert_law,
-                                      scalp_coupling_index,source_detector_distances)
-path=mne.datasets.fnirs_motor.data_path(path=DATA_ROOT,update_path=False)
-intensity=mne.io.read_raw_nirx(path/'Participant-1',preload=True,verbose=False)
-intensity.annotations.rename({'1.0':'Control','2.0':'Left','3.0':'Right'})
-intensity.annotations.delete(np.where(intensity.annotations.description=='15.0')[0])
-distance=source_detector_distances(intensity.info)
-intensity.pick(np.where(distance>.01)[0])
-od=optical_density(intensity)
-sci=scalp_coupling_index(od)
-od.info['bads']=[ch for ch,s in zip(od.ch_names,sci) if s<.5]
-print('Low-coupling channels:',od.info['bads'])
-haemo=beer_lambert_law(od,ppf=.1)
-haemo.filter(.05,.7,h_trans_bandwidth=.2,l_trans_bandwidth=.02)
+# Import the named tools used in this step.
+from mne.preprocessing.nirs import optical_density, beer_lambert_law, scalp_coupling_index, source_detector_distances
+# Store this intermediate result so the next operation can be traced and inspected.
+path = mne.datasets.fnirs_motor.data_path(path=DATA_ROOT, update_path=False)
+# Read optical intensity and wavelength/optode metadata together.
+intensity = mne.io.read_raw_nirx(path / 'Participant-1', preload=True, verbose=False)
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+intensity.annotations.rename({'1.0': 'Control', '2.0': 'Left', '3.0': 'Right'})
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+intensity.annotations.delete(np.where(intensity.annotations.description == '15.0')[0])
+# Read optode separation distances; this is sensor geometry, not source imaging.
+distance = source_detector_distances(intensity.info)
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+intensity.pick(np.where(distance > 0.01)[0])
+
+# %% [markdown]
+# ### Step 1.2 · trace the next operation
+#
+# **1.** Convert positive intensity into relative logarithmic attenuation.
+#
+# **2.** Calculate a quality indicator before interpreting hemoglobin changes.
+#
+# **3.** Store this intermediate result so the next operation can be traced and inspected.
+#
+# **4.** Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+#
+# **5.** Convert wavelength attenuation to relative HbO/HbR using the declared pathlength factor.
+#
+# **6.** Apply the declared frequency filter; copy first when the original must be preserved.
+
+# %%
+# Convert positive intensity into relative logarithmic attenuation.
+od = optical_density(intensity)
+# Calculate a quality indicator before interpreting hemoglobin changes.
+sci = scalp_coupling_index(od)
+# Store this intermediate result so the next operation can be traced and inspected.
+od.info['bads'] = [ch for ch, s in zip(od.ch_names, sci) if s < 0.5]
+# Display a bounded diagnostic; read the units, shape or partition rather than treating output as a success label.
+print('Low-coupling channels:', od.info['bads'])
+# Convert wavelength attenuation to relative HbO/HbR using the declared pathlength factor.
+haemo = beer_lambert_law(od, ppf=0.1)
+# Apply the declared frequency filter; copy first when the original must be preserved.
+haemo.filter(0.05, 0.7, h_trans_bandwidth=0.2, l_trans_bandwidth=0.02)
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -208,20 +404,100 @@ haemo.filter(.05,.7,h_trans_bandwidth=.2,l_trans_bandwidth=.02)
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
+# ## Practice 2 · Inspect the coupling decision
+#
+# **Try it:** Display channels with the lowest scalp coupling scores and count those marked bad.
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %%
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# The score is a quality indicator; the threshold is a declared choice.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
+
+# %%
+lab_quality=pd.DataFrame({'channel':od.ch_names,'coupling':sci,'marked_bad':[ch in od.info['bads'] for ch in od.ch_names]})
+print(lab_quality.sort_values('coupling').head(8))
+print('Marked bad:',lab_quality.marked_bad.sum(),'of',len(lab_quality))
+
+# %% [markdown]
+# ### Interpret and check
+#
+# The table makes exclusions auditable. A retained channel is not thereby proven to contain only cortical physiology. Coupling, motion, systemic circulation and superficial tissue require separate reasoning.
+
+# %% [markdown]
+# ## Practice 3 · Predict pathlength sensitivity by hand
+#
+# **Try it:** If the assumed pathlength factor doubles with the same measured optical-density changes, what happens to inferred concentration amplitudes?
+#
+# **My reasoning / hand calculation:** _write here._
+
+# %% [markdown]
+# **My answer:** _write a short explanation before continuing._
+
+# %% [markdown]
+# ### Hint
+#
+# Solve Δc = (LE)⁻¹ ΔOD with L replaced by 2L.
+
+# %% [markdown]
+# ### Worked solution
+#
+# They halve in the simplified linear model while the temporal shape remains the same. This is why pathlength conventions must accompany amplitude comparisons. Changing an optical assumption is not evidence that physiology changed.
+
+# %% [markdown]
 # ## Epoch the slow response
 # Use a long post-event interval and report how channel-quality choices affect interpretation.
 #
 # Long epochs capture a slow motor-related hemodynamic response. The plotted average is across retained HbO channels, which is a descriptive summary that may hide spatial heterogeneity.
 
+# %% [markdown]
+# ### Step 2.1 · trace the next operation
+#
+# **1.** Translate documented annotation descriptions into discrete event codes.
+#
+# **2.** Create event-aligned trials with the stated interval, baseline and quality rules.
+
 # %%
-events,event_id=mne.events_from_annotations(haemo,event_id={'Control':1,'Left':2,'Right':3})
-epochs=mne.Epochs(haemo,events,event_id,-5,15,baseline=(-5,0),preload=True)
-fig,ax=plt.subplots()
-for name in ['Control','Left','Right']:
-    ev=epochs[name].average(picks='hbo')
-    ax.plot(ev.times,ev.data.mean(0)*1e6,label=name)
-ax.set(xlabel='Time after instruction (s)',ylabel='Mean HbO change (µmol/L)',title='Motor execution · descriptive fNIRS response')
-ax.legend(); plt.show()
+# Translate documented annotation descriptions into discrete event codes.
+events, event_id = mne.events_from_annotations(haemo, event_id={'Control': 1, 'Left': 2, 'Right': 3})
+# Create event-aligned trials with the stated interval, baseline and quality rules.
+epochs = mne.Epochs(haemo, events, event_id, -5, 15, baseline=(-5, 0), preload=True)
+
+# %% [markdown]
+# ### Step 2.2 · trace the next operation
+#
+# **1.** Create axes; plotting changes the display, not the analyzed data.
+#
+# **2.** Plot each named condition on comparable axes without changing its observations.
+#
+# **3.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **4.** Apply the stated operation to the current object; use the surrounding explanation to check its role.
+#
+# **5.** Render the completed figure and inspect labels, units and the comparison.
+
+# %%
+# Create axes; plotting changes the display, not the analyzed data.
+fig, ax = plt.subplots()
+# Plot each named condition on comparable axes without changing its observations.
+for name in ['Control', 'Left', 'Right']:
+    ev = epochs[name].average(picks='hbo')
+    ax.plot(ev.times, ev.data.mean(0) * 1000000.0, label=name)
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.set(xlabel='Time after instruction (s)', ylabel='Mean HbO change (µmol/L)', title='Motor execution · descriptive fNIRS response')
+# Apply the stated operation to the current object; use the surrounding explanation to check its role.
+ax.legend()
+# Render the completed figure and inspect labels, units and the comparison.
+plt.show()
 
 # %% [markdown]
 # ### Inspect and interpret
@@ -231,110 +507,88 @@ ax.legend(); plt.show()
 # **Record in your notes:** the relevant shape/count or metric, the units where applicable, and one limitation of the inference.
 
 # %% [markdown]
-# ## Independent practice
+# ## Practice 4 · Compare HbO and HbR with their units intact
 #
-# Work through the tasks in order. Exercise 1 includes a small implementation check; passing it verifies the stated example, not every possible input. For the investigations, save a labeled figure or table and a short explanation. Use copies of data objects when changing preprocessing, and preserve any held-out evaluation partition.
+# **Try it:** Plot mean HbO and HbR for the left-tapping condition. Avoid forcing them to have opposite signs.
 #
-# **Submission:** your completed notebook, the requested outputs, and a brief exit-ticket response. The notebook runs before exercises are completed; “pending” means your work is still required.
-
-# %% [markdown]
-# ### Exercise 1 · Optical-density function
-#
-# Implement optical_density_change for strictly positive intensity and reference values.
+# **My reasoning / hand calculation:** _write here._
 
 # %%
-def optical_density_change(intensity, reference):
-    # TODO: natural logarithm of the relative intensity.
-    return None
+# Your attempt goes here. Work on copies and preserve the evaluation split.
+
+# %% [markdown]
+# ### Hint
+#
+# Select channel types separately and use the same time axis.
+
+# %% [markdown]
+# ### Worked solution
+#
+# Run the following calculation after attempting your own version.
 
 # %%
-answer=optical_density_change(np.array([.5,1.,2.]),1.)
-if answer is not None:
-    assert np.allclose(answer,[np.log(2),0,-np.log(2)]); print('Optical-density checks passed.')
-else: print('Exercise pending: implement optical_density_change.')
+fig,ax=plt.subplots(figsize=(9,4))
+for kind,style in [('hbo','-'),('hbr','--')]:
+    lab_ev=epochs['Left'].average(picks=kind)
+    ax.plot(lab_ev.times,lab_ev.data.mean(axis=0)*1e6,style,label=kind.upper())
+ax.axvline(0,color='black',lw=.8)
+ax.set(xlabel='Time after instruction (s)',ylabel='Mean concentration change (µmol/L)',title='Executed left tapping · retained-channel average')
+ax.legend();plt.show()
 
 # %% [markdown]
-# **Your response:**
+# ### Interpret and check
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# The traces are measured estimates under the stated pathlength convention. They need not mirror one another perfectly because physiology, noise and the averaging of heterogeneous channels all contribute. This is executed tapping, not imagery decoding.
 
 # %% [markdown]
-# ### Exercise 2 · Channel audit
+# ## Practice 5 · Design a slow-response decision
 #
-# Inspect coupling values and optode distances. Explain the threshold and list retained channels rather than silently dropping them.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# **Try it:** Why would an fNIRS interface generally need a different decision window from a P300 detector?
+#
+# **My reasoning / hand calculation:** _write here._
 
 # %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# **My answer:** _write a short explanation before continuing._
 
 # %% [markdown]
-# ### Exercise 3 · Conversion sensitivity
+# ### Hint
 #
-# Repeat conversion with another explicitly stated pathlength factor. Compare scale and waveform shape, explaining which changed.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# Compare hemodynamic and electrical response timescales.
 
 # %% [markdown]
-# **Your response:**
+# ### Worked solution
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# Hemodynamic changes unfold over seconds and may overlap between task blocks. A short P300-style window can miss much of that response. A proposed fNIRS decoder needs a suitable baseline, long enough evidence interval, grouped evaluation and explicit latency accounting.
 
 # %% [markdown]
-# ### Exercise 4 · Filter interpretation
+# ## Practice 6 · explain the complete method
 #
-# Plot the frequency response of the hemodynamic filter and relate it to task-block duration.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+#
+# **My explanation:** _write here._
 
 # %% [markdown]
-# **Your response:**
+# ### Worked answer · compare your reasoning
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# Intensity becomes optical density through a logarithmic ratio, then relative hemoglobin changes through an assumed optical model. Quality, systemic physiology and pathlength conventions matter. Slow executed-tapping responses do not establish an imagery BCI.
 
 # %% [markdown]
-# ### Exercise 5 · BCI proposal
+# ## If your result is different
 #
-# Design a trial-level feature and a grouped validation scheme for an fNIRS motor BCI. State the latency cost and the difference between executed and imagined movement.
-
-# %%
-# Your investigation: add code here.
-# Keep the original data and final test partition intact.
+# If logarithms are invalid, inspect raw positive intensity and saturation. If conversion amplitudes differ, check wavelength metadata, units, distances and pathlength conventions.
+#
+# If a dataset download fails, read the error and retry when the public host is reachable; do not silently replace real data with simulated values. If a notebook cell refers to an undefined variable, restart the kernel and run the preceding cells in order. Numerical scores can vary slightly with library versions; record versions and compare the protocol before concluding that a method changed.
 
 # %% [markdown]
-# **Your response:**
+# ## Can you now do this independently?
 #
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
-
-# %% [markdown]
-# ### Exercise 6 · Exit ticket
+# - Explain each arrow in the lesson map and the units at its boundaries.
+# - Reproduce the hand calculation and point to its corresponding code.
+# - Interpret the figures without turning a descriptive pattern into an unsupported causal claim.
+# - Complete a practice task before reading its worked solution.
+# - State which choices were fixed and which were learned from calibration data.
 #
-# Trace the units from measured intensity through optical density to relative HbO/HbR. Name two physiological confounds.
-
-# %% [markdown]
-# **Your response:**
-#
-# - Prediction or rationale: _write here_
-# - Evidence from your result: _write here_
-# - Interpretation and limitation: _write here_
+# If one item is unclear, return to the associated figure or practice section before the next lesson.
 
 # %% [markdown]
 # ## Next steps and sources
