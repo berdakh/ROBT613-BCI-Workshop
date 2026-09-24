@@ -1,0 +1,114 @@
+[
+  {
+    "notebook": "00_start_here.ipynb",
+    "cells": 46,
+    "markdown_words": 1835,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "01_p300_signal_to_epochs.ipynb",
+    "cells": 50,
+    "markdown_words": 1957,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "02_p300_classification_speller.ipynb",
+    "cells": 49,
+    "markdown_words": 1835,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "03_filtering_sampling.ipynb",
+    "cells": 50,
+    "markdown_words": 1818,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "04_artifacts_noise_cancellation.ipynb",
+    "cells": 50,
+    "markdown_words": 1959,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "05_segmentation_quality_control.ipynb",
+    "cells": 50,
+    "markdown_words": 1794,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "06_motor_imagery_bandpower.ipynb",
+    "cells": 50,
+    "markdown_words": 1776,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "07_time_frequency_erd.ipynb",
+    "cells": 47,
+    "markdown_words": 1609,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "08_competition_csp.ipynb",
+    "cells": 51,
+    "markdown_words": 1809,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "09_validation_model_selection.ipynb",
+    "cells": 48,
+    "markdown_words": 1675,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "10_ssvep_frequency_cca.ipynb",
+    "cells": 51,
+    "markdown_words": 1774,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "11_auditory_visual_erp.ipynb",
+    "cells": 48,
+    "markdown_words": 1665,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "12_fnirs_motor_paradigm.ipynb",
+    "cells": 48,
+    "markdown_words": 1654,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "13_neural_networks_autoencoders.ipynb",
+    "cells": 51,
+    "markdown_words": 1852,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "14_online_replay.ipynb",
+    "cells": 51,
+    "markdown_words": 1757,
+    "worked_examples": 4,
+    "exercises": 6
+  },
+  {
+    "notebook": "15_capstone_reproducible_bci.ipynb",
+    "cells": 49,
+    "markdown_words": 1754,
+    "worked_examples": 4,
+    "exercises": 6
+  }
+]
