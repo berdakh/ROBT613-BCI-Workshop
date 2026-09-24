@@ -2,81 +2,81 @@
   {
     "notebook": "00_start_here.ipynb",
     "status": "passed",
-    "seconds": 3.5
+    "seconds": 5.1
   },
   {
     "notebook": "01_p300_signal_to_epochs.ipynb",
     "status": "passed",
-    "seconds": 9.0
+    "seconds": 8.9
   },
   {
     "notebook": "02_p300_classification_speller.ipynb",
     "status": "passed",
-    "seconds": 9.3
+    "seconds": 8.8
   },
   {
     "notebook": "03_filtering_sampling.ipynb",
     "status": "passed",
-    "seconds": 4.3
+    "seconds": 4.7
   },
   {
     "notebook": "04_artifacts_noise_cancellation.ipynb",
     "status": "passed",
-    "seconds": 5.9
+    "seconds": 7.0
   },
   {
     "notebook": "05_segmentation_quality_control.ipynb",
     "status": "passed",
-    "seconds": 4.1
+    "seconds": 4.5
   },
   {
     "notebook": "06_motor_imagery_bandpower.ipynb",
     "status": "passed",
-    "seconds": 4.3
+    "seconds": 4.5
   },
   {
     "notebook": "07_time_frequency_erd.ipynb",
     "status": "passed",
-    "seconds": 4.1
+    "seconds": 4.5
   },
   {
     "notebook": "08_competition_csp.ipynb",
     "status": "passed",
-    "seconds": 14.8
+    "seconds": 14.4
   },
   {
     "notebook": "09_validation_model_selection.ipynb",
     "status": "passed",
-    "seconds": 5.0
+    "seconds": 4.9
   },
   {
     "notebook": "10_ssvep_frequency_cca.ipynb",
     "status": "passed",
-    "seconds": 4.5
+    "seconds": 5.1
   },
   {
     "notebook": "11_auditory_visual_erp.ipynb",
     "status": "passed",
-    "seconds": 4.7
+    "seconds": 5.1
   },
   {
     "notebook": "12_fnirs_motor_paradigm.ipynb",
     "status": "passed",
-    "seconds": 5.0
+    "seconds": 5.3
   },
   {
     "notebook": "13_neural_networks_autoencoders.ipynb",
     "status": "passed",
-    "seconds": 9.0
+    "seconds": 8.5
   },
   {
     "notebook": "14_online_replay.ipynb",
     "status": "passed",
-    "seconds": 3.4
+    "seconds": 4.3
   },
   {
     "notebook": "15_capstone_reproducible_bci.ipynb",
     "status": "passed",
-    "seconds": 10.9
+    "seconds": 10.4
   }
 ]
