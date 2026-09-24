@@ -15,3 +15,7 @@ A modular hands-on course using MNE-Python, real public recordings, and Colab-re
 ## Prepare an experiment
 
 [Evaluation protocol](guides/evaluation.md) · [Colab setup](guides/colab.md) · [Glossary](guides/glossary.md) · [Validation record](guides/validation.md)
+
+- [Instructor reference answers and discussion](guides/instructor-solutions.md)
+
+The teaching notebooks and their exercises remain entirely at the sensor level; EEG source imaging is outside this course.
