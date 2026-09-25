@@ -18,6 +18,8 @@ import nbformat
 
 root = Path(__file__).resolve().parents[1]
 for path in sorted((root / 'notebooks').glob('*.ipynb')):
+    if path.stem == '00a_mne_python_foundations':
+        continue  # MNE-dependent exercises are verified by full notebook execution.
     nb = nbformat.read(path, as_version=4)
     env = dict(np=np, pd=pd, plt=plt, signal=signal,
                StandardScaler=StandardScaler, GroupKFold=GroupKFold,
@@ -38,4 +40,4 @@ for path in sorted((root / 'notebooks').glob('*.ipynb')):
     assert checks == 1, (path.name, checks)
     plt.close('all')
     print('PASS', path.name)
-print('All 16 embedded reference checks passed.')
+print('All 16 dataset-free embedded reference checks passed; the MNE introduction is checked by full execution.')
