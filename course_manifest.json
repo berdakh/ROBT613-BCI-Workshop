@@ -4,7 +4,14 @@
     "title": "00 \u00b7 Your first EEG in MNE",
     "goal": "Inspect sampling, voltage units, channel names and event markers; understand the Raw \u2192 Epochs \u2192 Evoked workflow before starting the P300 track.",
     "time": "45\u201360 min",
-    "data": "No external recording"
+    "data": "Controlled arrays and recorded EEGBCI subject 1, run 4"
+  },
+  {
+    "slug": "00a_mne_python_foundations",
+    "title": "MNE-Python: scientific scope, software design and data model",
+    "goal": "Review MNE capabilities, data representations, metadata, units, copying, event alignment and reproducible derivatives.",
+    "time": "90\u2013120 min",
+    "data": "Controlled arrays and PhysioNet EEGBCI subject 1, run 4"
   },
   {
     "slug": "01_p300_signal_to_epochs",

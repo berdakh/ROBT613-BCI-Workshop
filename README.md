@@ -1,14 +1,18 @@
 # Brain–Computer Interfaces — a hands-on course
 
-**ROBT613 · MNE-Python · 16 self-contained notebooks · Google Colab or local CPU**
+**ROBT613 · MNE-Python · 17 self-contained notebooks · Google Colab or local CPU**
 
 Start with a P300 speller, learn how EEG becomes a feature vector, and build motor-imagery and SSVEP decoders. Extend the workflow to auditory/visual responses, fNIRS, neural networks and causal replay. Each notebook contains the teaching explanations, equations, visualizations, hands-on exercises and worked answers needed to study the method independently.
 
 The teaching sequence draws on [ROBT613](https://github.com/berdakh/ROBT613), the [Brussels MNE workshop](https://github.com/berdakh/mne-workshops/tree/master/2017_03_Brussels), and the sensor-level sections of the [Brown MNE workshop](https://github.com/berdakh/mne-workshop-brown), with original BCI lessons aligned to the supplied syllabus. This is a modular course, not a four-day schedule. Plan roughly **35–45 guided hours, 15–25 hours of independent practice, and a 6–12 hour capstone**, adjusted for student background and dataset downloads.
 
+## Academic revision
+
+Every notebook includes paradigm background, an experimental setup and acquisition description, mathematical definitions, references and native MNE visualizations. Original acquisition facts are distinguished from instructional processing choices. The fNIRS lesson displays optical/haemodynamic measurements rather than mislabelling them as EEG. Exercises and reference answers remain within each notebook. The dedicated MNE introduction covers public object design, metadata, units, memory, in-place operations, interoperability and reproducible derivatives.
+
 ## Self-study notebooks
 
-The **notebook is the complete lesson and workbook**. Students do not need an external answer guide. Every lesson follows this sequence:
+The **notebook is the complete lesson and workbook**. Students do not need an external answer guide. The sixteen paradigm and methods lessons follow this sequence; the additional MNE architecture tutorial has its own introductory exercises:
 
 1. A visual map of the full pipeline and a symbol guide.
 2. Equations derived through a numerical calculation that can be done on paper.
@@ -18,15 +22,15 @@ The **notebook is the complete lesson and workbook**. Students do not need an ex
 6. Six practice tasks placed beside the relevant method, each with a hint and a worked answer in the notebook. Computational tasks include executable solutions and numerical checks where appropriate.
 7. A worked exit response, troubleshooting advice and a self-assessment checklist.
 
-There are **16 pipeline flowcharts and 16 new concept figures**, in addition to the real-data plots and worked-example figures. Figure-generating code and saved outputs are embedded in each notebook; no external image folder or diagram renderer is needed. Blank student-attempt cells are intentional—the complete worked solutions follow them, so Run all still executes the lesson.
+There are **17 architecture/pipeline flowcharts and 16 concept figures**, in addition to the real-data plots and worked-example figures. Figure-generating code and saved outputs are embedded in each notebook; no external image folder or diagram renderer is needed. Blank student-attempt cells are intentional—the complete worked solutions follow them, so Run all still executes the lesson.
 
-Use the notebooks one cell at a time in class, pausing at each **Try it** question. For independent study, attempt the calculation before continuing to its solution. The [instructor guide](docs/guides/instructors.md) offers pacing suggestions but is not required to solve the exercises.
+Use the notebooks one cell at a time in class, pausing at each **Independent exercise** question. For independent study, attempt the calculation before continuing to its solution. The [instructor guide](docs/guides/instructors.md) offers pacing suggestions but is not required to solve the exercises.
 
 **Scope:** sensor-level EEG and an optional fNIRS lesson. EEG source imaging, forward/inverse modeling and anatomical source localization are not included. CSP and ICA maps describe sensor patterns only.
 
 ## Start here
 
-Open notebook **00** for the environment and MNE foundations, then **01–02** for P300. Every notebook runs independently; no repository clone or hidden helper module is needed in Colab. Select a **Python CPU runtime**, run the setup cell first, then work through the lesson one cell at a time. Run all is useful for a fresh-kernel reproducibility check. Internet is needed for first-time package and dataset downloads.
+Open notebook **00** for the environment, **00a** for MNE-Python’s scientific scope and software design, then **01–02** for P300. Every notebook runs independently; no repository clone or hidden helper module is needed in Colab. Select a **Python CPU runtime**, run the setup cell first, then work through the lesson one cell at a time. Run all is useful for a fresh-kernel reproducibility check. Internet is needed for first-time package and dataset downloads.
 
 **Dataset distinction:** MNE provides native EEGBCI, SSVEP, auditory/visual sample and fNIRS fetchers. The competition dataset is **BCI Competition IV 2a (BNCI2014-001)**, loaded through **MOABB into MNE**. BNCI2014-009 is a P300 speller dataset, not a competition speller dataset. Binary P300 target detection is evaluated on real data; row/column character aggregation is a separately labeled simulation because the paradigm loader lacks the necessary character metadata.
 
@@ -44,6 +48,7 @@ Open notebook **00** for the environment and MNE foundations, then **01–02** f
 | # | Lesson | Guided session (add practice) | Colab |
 |---|---|---|---|
 | 00 | [Your first EEG in MNE](notebooks/00_start_here.ipynb) | 90–120 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/00_start_here.ipynb) |
+| 00a | [MNE-Python: capabilities, software design and data model](notebooks/00a_mne_python_foundations.ipynb) | 90–120 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/00a_mne_python_foundations.ipynb) |
 | 01 | [P300 speller: from flashes to ERPs](notebooks/01_p300_signal_to_epochs.ipynb) | 90–120 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/01_p300_signal_to_epochs.ipynb) |
 | 02 | [P300 classification and character selection](notebooks/02_p300_classification_speller.ipynb) | 90–120 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/02_p300_classification_speller.ipynb) |
 | 03 | [Filtering, sampling and spectral inspection](notebooks/03_filtering_sampling.ipynb) | 90–120 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/03_filtering_sampling.ipynb) |

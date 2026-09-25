@@ -2,27 +2,32 @@
   {
     "notebook": "00_start_here.ipynb",
     "status": "passed",
+    "seconds": 4.6
+  },
+  {
+    "notebook": "00a_mne_python_foundations.ipynb",
+    "status": "passed",
     "seconds": 5.1
   },
   {
     "notebook": "01_p300_signal_to_epochs.ipynb",
     "status": "passed",
-    "seconds": 8.9
+    "seconds": 10.0
   },
   {
     "notebook": "02_p300_classification_speller.ipynb",
     "status": "passed",
-    "seconds": 8.8
+    "seconds": 9.9
   },
   {
     "notebook": "03_filtering_sampling.ipynb",
     "status": "passed",
-    "seconds": 4.7
+    "seconds": 4.6
   },
   {
     "notebook": "04_artifacts_noise_cancellation.ipynb",
     "status": "passed",
-    "seconds": 7.0
+    "seconds": 5.7
   },
   {
     "notebook": "05_segmentation_quality_control.ipynb",
@@ -32,51 +37,51 @@
   {
     "notebook": "06_motor_imagery_bandpower.ipynb",
     "status": "passed",
-    "seconds": 4.5
+    "seconds": 5.1
   },
   {
     "notebook": "07_time_frequency_erd.ipynb",
     "status": "passed",
-    "seconds": 4.5
+    "seconds": 4.9
   },
   {
     "notebook": "08_competition_csp.ipynb",
     "status": "passed",
-    "seconds": 14.4
+    "seconds": 15.0
   },
   {
     "notebook": "09_validation_model_selection.ipynb",
     "status": "passed",
-    "seconds": 4.9
+    "seconds": 5.7
   },
   {
     "notebook": "10_ssvep_frequency_cca.ipynb",
     "status": "passed",
-    "seconds": 5.1
+    "seconds": 5.5
   },
   {
     "notebook": "11_auditory_visual_erp.ipynb",
     "status": "passed",
-    "seconds": 5.1
+    "seconds": 6.2
   },
   {
     "notebook": "12_fnirs_motor_paradigm.ipynb",
     "status": "passed",
-    "seconds": 5.3
+    "seconds": 5.5
   },
   {
     "notebook": "13_neural_networks_autoencoders.ipynb",
     "status": "passed",
-    "seconds": 8.5
+    "seconds": 8.4
   },
   {
     "notebook": "14_online_replay.ipynb",
     "status": "passed",
-    "seconds": 4.3
+    "seconds": 4.9
   },
   {
     "notebook": "15_capstone_reproducible_bci.ipynb",
     "status": "passed",
-    "seconds": 10.4
+    "seconds": 10.8
   }
 ]
