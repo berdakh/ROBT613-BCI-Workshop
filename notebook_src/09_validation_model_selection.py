@@ -1,7 +1,7 @@
 # %% [markdown]
-# # 09 · Honest validation and model selection
+# # 09 · Independent validation and model selection
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Compare classifiers with nested run-grouped validation, distinguish uncertainty units and diagnose leakage.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Motor imagery and sensorimotor rhythms
+#
+# Motor imagery is the internal rehearsal of movement without overt execution. In a sensorimotor-rhythm BCI, the intended action is inferred from changes in oscillatory activity, commonly within the mu and beta ranges. Event-related desynchronization denotes reduced band power relative to a reference interval; it does not mean that the EEG voltage becomes uniformly negative. The spatial and temporal distributions are variable across participants and trials.
+#
+# A minimal cue-based experiment presents a fixation interval followed by a left- or right-hand instruction, an imagery interval and a rest interval. The participant imagines the kinesthetic sensation of movement while maintaining posture. An EEG cap, amplifier and acquisition computer record continuous signals; a stimulus computer records cue onset and class. Additional EOG or EMG channels, when actually acquired, can support artifact assessment. Their presence must not be assumed from scalp EEG alone.
+#
+# A trial is one instructed imagery interval; a run is a sequence of trials; a session is a recording visit. These levels are not exchangeable independent samples. Run-wise evaluation assesses transfer across recording blocks, whereas subject-wise evaluation addresses a different generalization claim. Averaging signed voltages can suppress induced rhythms whose phases vary between trials; band power or time–frequency estimates are therefore central measurements.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# PhysioNet EEGBCI: 64 scalp channels, 160 Hz. Runs 4, 8 and 12 encode imagined left/right fist movement; individual lessons may use only run 4. Acquisition used BCI2000. The original database also contains executed movements and other imagery tasks.
+#
+# **Acquisition reference:** [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Cue and task instruction → continuous EEG → imagery epoch → spectral/spatial features. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# Let $G_i$ denote the run or session of observation $i$. Grouped validation requires $\{G_i:i\in\mathcal I_{train}\}\cap\{G_i:i\in\mathcal I_{test}\}=\varnothing$. Nested validation chooses hyperparameters using inner training partitions, then estimates performance using the outer held-out group. Balanced accuracy is $K^{-1}\sum_{k=1}^K TP_k/(TP_k+FN_k)$. It weights classes equally, but does not remove dependence among repeated measurements.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Blankertz et al. (2008). Optimizing spatial filters for robust EEG single-trial analysis](https://doi.org/10.1109/MSP.2008.4408441). Spatial covariance methods for decoding.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# Two models differ by five percentage points. Was one better, or did the evaluation accidentally reward reuse of the same recording? We turn “train/test split” into an explicit scientific claim about future use.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Match run, session and participant grouping to the target use case.
 # - Explain inner selection and outer evaluation in nested validation.
@@ -150,7 +190,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · Separate outer testing from inner selection
 #
-# **Try it:** Trace the row where C is the outer test run. Which observations can select a component count?
+# **Independent exercise:** Trace the row where C is the outer test run. Which observations can select a component count?
 
 # %%
 from matplotlib.colors import ListedColormap
@@ -173,7 +213,7 @@ plt.show()
 #
 # Construct a 90/10 dataset and predict only the majority class.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -200,7 +240,7 @@ print('Accuracy:',accuracy_score(demo_y,demo_pred),'Balanced accuracy:',balanced
 #
 # Use three groups and print the identifiers in each partition. Assert that no group crosses a boundary.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -228,7 +268,7 @@ for train_idx,test_idx in GroupKFold(3).split(np.zeros((12,1)),demo_y,demo_group
 #
 # Compare training-only and pooled means when the held-out data have shifted.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -257,7 +297,7 @@ print('Test transformed by training parameters:',demo_scaler.transform(demo_test
 #
 # Imagine twenty equally good candidates whose validation estimates contain noise. Compare the maximum observed estimate with their shared true value.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -284,7 +324,7 @@ print('Mean selected maximum:',demo_estimates.max(axis=1).mean())
 #
 # Implement groups_disjoint to return whether train and test contain no shared group identifiers.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def groups_disjoint(train_groups, test_groups):
@@ -414,7 +454,7 @@ print('Epochs:', X.shape, 'run counts:', pd.Series(groups).value_counts().to_dic
 # %% [markdown]
 # ## Practice 2 · List the groups in one outer and inner split
 #
-# **Try it:** Print one outer partition and the two inner partitions within its training set. Verify that the outer test run never appears inside.
+# **Independent exercise:** Print one outer partition and the two inner partitions within its training set. Verify that the outer test run never appears inside.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -539,7 +579,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Report scores without artificial precision
 #
-# **Try it:** Display the per-run scores and their mean/range. Write a conclusion limited to these runs.
+# **Independent exercise:** Display the per-run scores and their mean/range. Write a conclusion limited to these runs.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -569,7 +609,7 @@ print('Range:',results.balanced_accuracy.min(),results.balanced_accuracy.max())
 # %% [markdown]
 # ## Practice 4 · Choose the evaluation unit for deployment
 #
-# **Try it:** Match three intended uses to appropriate partitions: new block today, another day, a new participant.
+# **Independent exercise:** Match three intended uses to appropriate partitions: new block today, another day, a new participant.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -589,7 +629,7 @@ print('Range:',results.balanced_accuracy.min(),results.balanced_accuracy.max())
 # %% [markdown]
 # ## Practice 5 · Respond to test-set reuse
 #
-# **Try it:** After seeing the final score, a team changes bands repeatedly until accuracy improves. What can the revised score legitimately be called?
+# **Independent exercise:** After seeing the final score, a team changes bands repeatedly until accuracy improves. What can the revised score legitimately be called?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -607,9 +647,29 @@ print('Range:',results.balanced_accuracy.min(),results.balanced_accuracy.max())
 # It is an exploratory result on reused evaluation data. Document the changes and obtain a new independent test before making a confirmatory claim. There is no correction that restores the original untouched status merely by renaming the partition.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Display individual recorded trials with MNE's epoch-image API.
+inspection_epochs = epochs.copy().pick(['C3'])
+inspection_epochs.plot_image(picks=['C3'], sigma=0, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The image displays individual trials at C3; colour encodes voltage and the lower panel summarizes the evoked response. Inspect amplitude variability and temporal alignment. For motor imagery and SSVEP, a weak signed average can coexist with substantial induced or frequency-locked power; interpret this display alongside the spectral analysis. Trial order follows the loaded epoch object and is not a randomized validation split.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -641,3 +701,19 @@ print('Range:',results.balanced_accuracy.min(),results.balanced_accuracy.max())
 # [Cross-validation](https://scikit-learn.org/stable/modules/cross_validation.html) · [Common pitfalls](https://scikit-learn.org/stable/common_pitfalls.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Blankertz et al. (2008). Optimizing spatial filters for robust EEG single-trial analysis](https://doi.org/10.1109/MSP.2008.4408441). Spatial covariance methods for decoding.

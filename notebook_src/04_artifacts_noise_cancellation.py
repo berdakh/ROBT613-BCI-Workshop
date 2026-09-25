@@ -1,7 +1,7 @@
 # %% [markdown]
 # # 04 · Artifacts, referencing and noise cancellation
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Detect bad channels, compare reference choices, and understand regression and ICA through a controlled contamination experiment.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Motor imagery and sensorimotor rhythms
+#
+# Motor imagery is the internal rehearsal of movement without overt execution. In a sensorimotor-rhythm BCI, the intended action is inferred from changes in oscillatory activity, commonly within the mu and beta ranges. Event-related desynchronization denotes reduced band power relative to a reference interval; it does not mean that the EEG voltage becomes uniformly negative. The spatial and temporal distributions are variable across participants and trials.
+#
+# A minimal cue-based experiment presents a fixation interval followed by a left- or right-hand instruction, an imagery interval and a rest interval. The participant imagines the kinesthetic sensation of movement while maintaining posture. An EEG cap, amplifier and acquisition computer record continuous signals; a stimulus computer records cue onset and class. Additional EOG or EMG channels, when actually acquired, can support artifact assessment. Their presence must not be assumed from scalp EEG alone.
+#
+# A trial is one instructed imagery interval; a run is a sequence of trials; a session is a recording visit. These levels are not exchangeable independent samples. Run-wise evaluation assesses transfer across recording blocks, whereas subject-wise evaluation addresses a different generalization claim. Averaging signed voltages can suppress induced rhythms whose phases vary between trials; band power or time–frequency estimates are therefore central measurements.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# PhysioNet EEGBCI: 64 scalp channels, 160 Hz. Runs 4, 8 and 12 encode imagined left/right fist movement; individual lessons may use only run 4. Acquisition used BCI2000. The original database also contains executed movements and other imagery tasks.
+#
+# **Acquisition reference:** [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Cue and task instruction → continuous EEG → imagery epoch → spectral/spatial features. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# In a linear artifact model $X=S+BR+E$, $X\in\mathbb R^{C\times T}$ contains measurements and $R\in\mathbb R^{Q\times T}$ reference signals. Least squares gives $\hat B=XR^\top(RR^\top)^{\dagger}$ and residual $X-\hat BR$. The pseudoinverse accommodates rank deficiency but does not ensure physiological specificity. ICA instead posits $X=AS$ and estimates an unmixing matrix $W$ using independence-related assumptions. Component removal is a substantive decision, not a consequence of decomposition alone.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Widmann, Schröger and Maess (2015). Digital filter design for electrophysiological data—a practical approach](https://doi.org/10.1016/j.jneumeth.2014.08.002). Filter response, distortion and design considerations.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# A frontal channel contains large slow deflections. Is the correct response a high-pass filter, a new reference, trial rejection, regression or ICA? We separate the evidence for an artifact from the operation used to reduce it.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Distinguish temporal filtering, spatial referencing, rejection and nuisance regression.
 # - Calculate how a bad channel contaminates an average reference.
@@ -151,7 +191,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · See how a shared reference spreads contamination
 #
-# **Try it:** The first two sensors are quiet. Predict their referenced amplitudes when a third sensor has a large offset.
+# **Independent exercise:** The first two sensors are quiet. Predict their referenced amplitudes when a third sensor has a large offset.
 
 # %%
 vis_before=np.array([1.,2.,90.]);vis_after=vis_before-vis_before.mean()
@@ -172,7 +212,7 @@ ax.legend();plt.show()
 #
 # Predict the mean of each time column before running. The third sensor has an artificial offset; inspect how subtracting the average affects the two initially quiet sensors.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -199,7 +239,7 @@ assert np.allclose(demo_ref.mean(axis=0),0)
 #
 # Construct the reference matrix explicitly. Compare its rank with the number of channels and apply it twice.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -226,7 +266,7 @@ assert np.allclose(demo_R@demo_R,demo_R)
 #
 # Let a nuisance reference contain a component perfectly correlated with a desired oscillation. Even though subtraction reduces variance, examine its effect on the desired oscillation.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -257,7 +297,7 @@ print('Wanted-wave coefficient before / after:',np.dot(demo_observed,demo_wanted
 #
 # A mixture can correlate strongly with an artifact reference and still contain useful activity. Calculate the association and describe what extra evidence would be needed before removal.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -285,7 +325,7 @@ print('Useful activity variance:',np.var(demo_useful))
 #
 # Implement average_reference for a channel × time array without modifying the input.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def average_reference(values):
@@ -403,7 +443,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 2 · Inspect the most extreme channel rather than deleting it
 #
-# **Try it:** Plot the first five seconds of the channel with the largest peak-to-peak amplitude. State what this short view can and cannot establish.
+# **Independent exercise:** Plot the first five seconds of the channel with the largest peak-to-peak amplitude. State what this short view can and cannot establish.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -522,7 +562,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Break the regression stationarity assumption
 #
-# **Try it:** Keep calibration contamination at 0.7 times EOG but change evaluation contamination to 1.2. Apply the original coefficient and calculate residual error.
+# **Independent exercise:** Keep calibration contamination at 0.7 times EOG but change evaluation contamination to 1.2. Apply the original coefficient and calculate residual error.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -609,7 +649,7 @@ print('Excluded components:', ica.exclude)
 # %% [markdown]
 # ## Practice 4 · Build an ICA evidence decision
 #
-# **Try it:** What evidence would justify removing a component, and what does the current empty exclusion list mean?
+# **Independent exercise:** What evidence would justify removing a component, and what does the current empty exclusion list mean?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -629,7 +669,7 @@ print('Excluded components:', ica.exclude)
 # %% [markdown]
 # ## Practice 5 · Compare rejection with subtraction
 #
-# **Try it:** How do rejecting a trial and subtracting a component affect the dataset differently?
+# **Independent exercise:** How do rejecting a trial and subtracting a component affect the dataset differently?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -647,9 +687,29 @@ print('Excluded components:', ica.exclude)
 # Trial rejection reduces the number of observations and can alter class balance or representativeness. Component subtraction retains trials but changes their signals and may remove wanted activity. Both need a documented criterion and a before/after audit appropriate to the downstream task.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Estimate the spectrum from the recorded EEG, retaining MNE metadata.
+recorded_spectrum = raw.compute_psd(method='welch', fmin=1, fmax=40, picks=['C3', 'Cz', 'C4'], n_fft=256, verbose=False)
+recorded_spectrum.plot(average=False, spatial_colors=False, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The horizontal axis represents frequency; the vertical axis represents spectral density on the scale indicated by MNE. Compare central channels and identify broad-band versus narrow-band structure. A spectral difference alone does not establish task discrimination. This panel uses recorded EEG; controlled examples elsewhere remain explicitly synthetic.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -681,3 +741,19 @@ print('Excluded components:', ica.exclude)
 # [MNE ICA tutorial](https://mne.tools/stable/auto_tutorials/preprocessing/40_artifact_correction_ica.html) · [EEG reference](https://mne.tools/stable/auto_tutorials/preprocessing/55_setting_eeg_reference.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Widmann, Schröger and Maess (2015). Digital filter design for electrophysiological data—a practical approach](https://doi.org/10.1016/j.jneumeth.2014.08.002). Filter response, distortion and design considerations.

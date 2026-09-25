@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Four-class motor imagery and competition evaluation
+#
+# The four-class motor-imagery paradigm distinguishes imagined movement of the left hand, right hand, both feet and tongue. Class-dependent sensorimotor power distributions motivate spatial filtering. Common spatial patterns (CSP) project channel measurements onto directions selected using training labels; the resulting components are statistical discriminants, not anatomical generators.
+#
+# A minimal experimental setup comprises a screen presenting class cues, an EEG amplifier, a scalp electrode montage and a synchronized event channel. The participant remains still and performs the instructed imagery during the task interval. Runs contain repeated trials of each class. Session separation introduces changes in electrode contact, participant state and signal statistics and therefore provides a more demanding evaluation than randomly partitioning nearby trials.
+#
+# The competition dataset provides an existing experiment; this notebook performs offline analysis, not a new intervention or online feedback study. Retain the subject, session and run identifiers throughout preprocessing. Hyperparameter selection must use only training groups. Inspection of a test-set signal may describe the recording but must not become an undocumented basis for feature selection.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# BCI Competition IV dataset 2a (MOABB BNCI2014_001): nine participants, 22 EEG channels and three EOG channels in the original acquisition, 250 Hz, two sessions, four imagery classes. The teaching analysis selects subject 1 and EEG channels.
+#
+# **Acquisition reference:** [BCI Competition IV, dataset 2a: original description](https://www.bbci.de/competition/iv/desc_2a.pdf). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Four-class cue → EEG and event acquisition → session-preserving epochs → CSP → classifier. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# A reproducible experiment is a mapping from data identifiers, preprocessing configuration, training indices and random state to fitted parameters and predictions. Report $\hat R=N_{test}^{-1}\sum_{i\in test}\ell(y_i,\hat y_i)$ with the loss and evaluation unit specified. Trial-level uncertainty is not subject-level uncertainty. Predictions, labels and group identifiers must remain aligned, and the final test set must remain excluded from model selection.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Blankertz et al. (2008). Optimizing spatial filters for robust EEG single-trial analysis](https://doi.org/10.1109/MSP.2008.4408441). Spatial covariance methods for decoding.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# Your team must deliver a result another group can rerun and critique. The final task is not to maximize a leaderboard number: it is to connect a well-defined BCI question to a complete, auditable experiment.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Specify a reproducible experiment before inspecting final test results.
 # - Produce predictions, metadata and a report that support the same claim.
@@ -153,7 +193,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · Make the confusion matrix auditable
 #
-# **Try it:** Compute each row recall by hand. Why should rows, rather than columns, be normalized for recall?
+# **Independent exercise:** Compute each row recall by hand. Why should rows, rather than columns, be normalized for recall?
 
 # %%
 vis_cm=np.array([[8,1,1],[2,5,3],[0,2,8]])
@@ -176,7 +216,7 @@ plt.show()
 #
 # Build a small explicit record. Separate the development partition from the final evaluation partition.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -201,7 +241,7 @@ print(pd.Series(demo_record))
 #
 # Compute per-group differences before averaging. Inspect whether improvement is consistent.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -228,7 +268,7 @@ print('Paired differences:',demo_difference,'Mean:',demo_difference.mean())
 #
 # Derive balanced accuracy from an illustrative multiclass confusion matrix with true classes in rows.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -254,7 +294,7 @@ print('Class recalls:',demo_recall,'Balanced accuracy:',demo_recall.mean())
 #
 # Check lengths, label range and a stable trial index before exporting a prediction table.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -282,7 +322,7 @@ print(demo_predictions)
 #
 # Implement macro_recall for a confusion matrix whose true classes are rows, assuming each class has at least one observation.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def macro_recall(confusion):
@@ -447,7 +487,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 2 · Recompute the score from a confusion matrix
 #
-# **Try it:** Use the actual four-class predictions to reconstruct balanced accuracy from row recalls.
+# **Independent exercise:** Use the actual four-class predictions to reconstruct balanced accuracy from row recalls.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -481,7 +521,7 @@ assert np.isclose(lab_recalls.mean(),score)
 # %% [markdown]
 # ## Practice 3 · Write a claim with the correct scope
 #
-# **Try it:** Complete: “Under this pipeline, the model generalized from ___ to ___ for ___.”
+# **Independent exercise:** Complete: “Under this pipeline, the model generalized from ___ to ___ for ___.”
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -547,7 +587,7 @@ print(json.dumps(record, indent=2))
 # %% [markdown]
 # ## Practice 4 · Reproduce the metric from the saved artifact
 #
-# **Try it:** Read the exported predictions from disk and recompute the score without asking the model to predict again.
+# **Independent exercise:** Read the exported predictions from disk and recompute the score without asking the model to predict again.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -579,7 +619,7 @@ assert np.isclose(lab_saved_score,record['balanced_accuracy'])
 # %% [markdown]
 # ## Practice 5 · Plan one fair next comparison
 #
-# **Try it:** Which parts of the experiment must stay fixed when comparing CSP–LDA with another feature/model combination?
+# **Independent exercise:** Which parts of the experiment must stay fixed when comparing CSP–LDA with another feature/model combination?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -597,9 +637,31 @@ assert np.isclose(lab_saved_score,record['balanced_accuracy'])
 # Keep the participant/session split, eligible trials, event definitions, primary metric and calibration information fixed. Tune both methods within calibration data with a stated search budget. Record all configurations and predictions. If the current test results influenced the new choice, use a new independent evaluation for the final claim.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Display individual recorded trials with MNE's epoch-image API.
+inspection_epochs = epochs.copy().pick(['C3'])
+inspection_epochs.plot_image(picks=['C3'], sigma=0, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The image displays individual trials at C3; colour encodes voltage and the lower panel summarizes the evoked response. Inspect amplitude variability and temporal alignment. For motor imagery and SSVEP, a weak signed average can coexist with substantial induced or frequency-locked power; interpret this display alongside the spectral analysis. Trial order follows the loaded epoch object and is not a randomized validation split.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+#
+# The MNE time axis is relative to trial onset in this loader: 2.5–5.5 seconds corresponds to 0.5–3.5 seconds after the cue. Distinguish this coordinate convention from a cue-relative epoch axis.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -631,3 +693,19 @@ assert np.isclose(lab_saved_score,record['balanced_accuracy'])
 # [Course evaluation guide](../docs/guides/evaluation.md) · [Competition dataset](https://moabb.neurotechx.com/docs/generated/moabb.datasets.BNCI2014_001.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [BCI Competition IV, dataset 2a: original description](https://www.bbci.de/competition/iv/desc_2a.pdf). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Blankertz et al. (2008). Optimizing spatial filters for robust EEG single-trial analysis](https://doi.org/10.1109/MSP.2008.4408441). Spatial covariance methods for decoding.

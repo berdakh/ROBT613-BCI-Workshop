@@ -1,7 +1,7 @@
 # %% [markdown]
 # # 01 · P300 speller: from flashes to ERPs
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Load a real P300 speller recording, inspect target imbalance, visualize event-related activity and extract temporal features.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### P300 spelling and selective attention
+#
+# A P300 speller transforms selective attention into a discrete selection. The participant attends to a designated symbol while groups of symbols are intensified. A flash containing the attended symbol is a target; another flash is a non-target. These are stimulus-level labels, whereas the intended character is a selection-level label. The distinction is essential: target detection accuracy is not character selection accuracy.
+#
+# The P300 is an event-related positive deflection whose amplitude and latency depend on attention, task demands and stimulus probability. “300” is a conventional designation rather than a fixed latency. A target-minus-non-target waveform can contain several components, and a positive peak alone does not establish reliable communication. Repetition supports averaging or evidence accumulation at the cost of selection time. Gaze, fatigue and stimulus timing may influence performance.
+#
+# A minimal instructional experiment uses a symbol matrix, a stimulus computer, an EEG amplifier and scalp electrodes, and synchronized stimulus markers. The participant receives an intended symbol, observes randomized flashes, and counts or attends to target flashes. Each marker must identify flash onset and stimulus identity; the target instruction supplies the target/non-target label. Selection identifiers and repetition indices must be retained if character decoding is intended. This is an illustrative design, not a reconstruction of undocumented timing in the downloaded files.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# BNCI2014-009 grid-speller data; 16 EEG channels, 256 Hz original sampling, three sessions in the selected subject. MOABB supplies MNE-compatible epochs. This is a BNCI-hosted P300 dataset, not Competition IV 2a.
+#
+# **Acquisition reference:** [BNCI2014_009 dataset and loader documentation](https://moabb.neurotechx.com/docs/generated/moabb.datasets.BNCI2014_009.html). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Flash onset → target/non-target epoch → repeated evidence → character selection. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# For event onset sample $s_i$, epoch $X_i[c,k]=x_c[s_i+k]$ uses a relative time coordinate $t_k=k/f_s$. For class $q$, $\bar X_q[c,k]=N_q^{-1}\sum_{i:y_i=q}X_i[c,k]$. If independent zero-mean trial noise has variance $\sigma^2$, the average noise variance is $\sigma^2/N_q$; correlated noise does not satisfy this reduction. A temporal feature is $z_{icw}=|\mathcal T_w|^{-1}\sum_{k\in\mathcal T_w}X_i[c,k]$, with units of volts.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Farwell and Donchin (1988). Talking off the top of your head: toward a mental prosthesis utilizing event-related brain potentials](https://doi.org/10.1016/0013-4694(88)90149-6). Foundational P300 spelling experiment.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# A student sees a positive bump around 300 ms and calls it a working speller. Your task is to slow down that conclusion: identify what was flashed, which flashes were attended, how the EEG was aligned, and what averaging hides. By the end, you will have a defensible feature matrix, not yet a character decoder.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Explain target versus non-target labels in a row/column attention task.
 # - Derive why class averaging improves random-noise visibility but not single-trial reliability.
@@ -139,7 +179,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · Connect the speller grid to the flash timeline
 #
-# **Try it:** Count the highlighted row and column. Why are two of twelve groups targets in one idealized repetition?
+# **Independent exercise:** Count the highlighted row and column. Why are two of twelve groups targets in one idealized repetition?
 
 # %%
 vis_grid=np.array(list('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')).reshape(6,6)
@@ -166,7 +206,7 @@ plt.show()
 #
 # Construct one idealized repetition for a target at row 2, column 4 (zero-based). This is a small experiment-design model, not a reconstruction of the downloaded recording.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -195,7 +235,7 @@ print('Always non-target accuracy:',1-demo_target.mean())
 #
 # For samples $[2,4,6]$ µV in a window, the mean is 4 µV. In a batch, compute that operation independently for every trial and channel. The output must lose the time axis and keep the other two.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -226,7 +266,7 @@ assert np.isclose(demo_features[0,0]*1e6,4)
 #
 # Generate positive responses with the same amplitude but different latencies. Predict whether averaging preserves peak height. Use the same y-axis for the two conditions.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -258,7 +298,7 @@ ax.legend();plt.show()
 #
 # With independent zero-mean noise, the window mean is centered near zero but the maximum tends to be positive. This illustrates selection bias in a peak search.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -287,7 +327,7 @@ ax.legend();plt.show()
 #
 # Complete `window_mean` below. Use a half-open interval [start, stop). Preserve the trial and channel axes and reject an empty window with a useful error.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def window_mean(data, times, start, stop):
@@ -407,7 +447,7 @@ print('Shape:', X.shape, 'sampling:', epochs.info['sfreq'], 'Hz')
 # %% [markdown]
 # ## Practice 2 · Audit class imbalance with actual counts
 #
-# **Try it:** Calculate target prevalence and the accuracy of always predicting non-target in each session. Do this from labels rather than assuming the idealized 1/6 rate.
+# **Independent exercise:** Calculate target prevalence and the accuracy of always predicting non-target in each session. Do this from labels rather than assuming the idealized 1/6 rate.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -494,7 +534,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Interpret a small average without overclaiming
 #
-# **Try it:** Give two explanations for a small target ERP that do not imply the brain produced no response.
+# **Independent exercise:** Give two explanations for a small target ERP that do not imply the brain produced no response.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -552,7 +592,7 @@ print('Always non-target accuracy:', (y == 0).mean(), 'balanced accuracy: 0.5')
 # %% [markdown]
 # ## Practice 4 · Build one feature by hand and compare with the matrix
 #
-# **Try it:** For the first trial and first channel, compute the first window mean. Find the same value in features.
+# **Independent exercise:** For the first trial and first channel, compute the first window mean. Find the same value in features.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -584,7 +624,7 @@ assert np.isclose(lab_value,features[0,0])
 # %% [markdown]
 # ## Practice 5 · Keep flash and character units separate
 #
-# **Try it:** Can the target/non-target feature matrix alone produce a defensible real spelling accuracy? List the missing information.
+# **Independent exercise:** Can the target/non-target feature matrix alone produce a defensible real spelling accuracy? List the missing information.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -602,9 +642,31 @@ assert np.isclose(lab_value,features[0,0])
 # No. It needs the identity of each flashed group, the intended character, repetition boundaries and character-selection boundaries. The real binary detector can be evaluated without all of that metadata, but character accuracy and typing speed cannot be inferred from binary AUC.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Display individual recorded trials with MNE's epoch-image API.
+inspection_epochs = epochs.copy().pick(['Pz'])
+inspection_epochs.plot_image(picks=['Pz'], sigma=0, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The image displays individual trials at Pz; colour encodes voltage and the lower panel summarizes the evoked response. Inspect amplitude variability and temporal alignment. For motor imagery and SSVEP, a weak signed average can coexist with substantial induced or frequency-locked power; interpret this display alongside the spectral analysis. Trial order follows the loaded epoch object and is not a randomized validation split.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+#
+# The image pools target and non-target trials. Its lower trace is therefore a pooled average, not the target P300 or a target-minus-non-target contrast. Use the condition-specific plots earlier in the lesson to examine that distinction.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -636,3 +698,19 @@ assert np.isclose(lab_value,features[0,0])
 # [Dataset documentation](https://moabb.neurotechx.com/docs/generated/moabb.datasets.BNCI2014_009.html) · [MNE epochs](https://mne.tools/stable/auto_tutorials/epochs/10_epochs_overview.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [BNCI2014_009 dataset and loader documentation](https://moabb.neurotechx.com/docs/generated/moabb.datasets.BNCI2014_009.html). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Farwell and Donchin (1988). Talking off the top of your head: toward a mental prosthesis utilizing event-related brain potentials](https://doi.org/10.1016/0013-4694(88)90149-6). Foundational P300 spelling experiment.

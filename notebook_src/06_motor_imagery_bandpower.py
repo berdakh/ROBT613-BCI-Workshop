@@ -1,7 +1,7 @@
 # %% [markdown]
 # # 06 · Motor imagery: a first decoder
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Decode imagined left versus right hand movement with spectral features and leave-one-run-out validation.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Motor imagery and sensorimotor rhythms
+#
+# Motor imagery is the internal rehearsal of movement without overt execution. In a sensorimotor-rhythm BCI, the intended action is inferred from changes in oscillatory activity, commonly within the mu and beta ranges. Event-related desynchronization denotes reduced band power relative to a reference interval; it does not mean that the EEG voltage becomes uniformly negative. The spatial and temporal distributions are variable across participants and trials.
+#
+# A minimal cue-based experiment presents a fixation interval followed by a left- or right-hand instruction, an imagery interval and a rest interval. The participant imagines the kinesthetic sensation of movement while maintaining posture. An EEG cap, amplifier and acquisition computer record continuous signals; a stimulus computer records cue onset and class. Additional EOG or EMG channels, when actually acquired, can support artifact assessment. Their presence must not be assumed from scalp EEG alone.
+#
+# A trial is one instructed imagery interval; a run is a sequence of trials; a session is a recording visit. These levels are not exchangeable independent samples. Run-wise evaluation assesses transfer across recording blocks, whereas subject-wise evaluation addresses a different generalization claim. Averaging signed voltages can suppress induced rhythms whose phases vary between trials; band power or time–frequency estimates are therefore central measurements.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# PhysioNet EEGBCI: 64 scalp channels, 160 Hz. Runs 4, 8 and 12 encode imagined left/right fist movement; individual lessons may use only run 4. Acquisition used BCI2000. The original database also contains executed movements and other imagery tasks.
+#
+# **Acquisition reference:** [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Cue and task instruction → continuous EEG → imagery epoch → spectral/spatial features. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# The power spectral density $S_c(f)$ has units $\mathrm{V}^2/\mathrm{Hz}$. Band power is $P_{c,[a,b]}=\int_a^bS_c(f)\,df$, in $\mathrm{V}^2$. A dimensionless logarithmic feature is $z_c=\ln(P_c/P_0)$ for a fixed reference power $P_0$; code using $\ln(P_c)$ implicitly fixes a numerical unit convention. Standardization uses training estimates $\tilde z_j=(z_j-\mu_{j,\mathrm{train}})/\sigma_{j,\mathrm{train}}$.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Pfurtscheller and Lopes da Silva (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles](https://doi.org/10.1016/S1388-2457(99)00141-8). Physiological and quantitative basis of ERD/ERS.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# Can imagined left- and right-hand movement be distinguished by the power of sensorimotor rhythms? We first turn a sinusoid into a defensible numerical feature, then test a simple model on a different recording run.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Connect sinusoid amplitude, variance and power spectral density.
 # - Integrate band power with the correct frequency-bin width.
@@ -120,7 +160,7 @@ plt.show()
 # %% [markdown]
 # ### From motor physiology to a measurable feature
 #
-# Motor imagery involves imagining movement without performing it. Changes in sensorimotor mu and beta activity can be informative, but they are not a guaranteed switch present in every trial. C3 and C4 are useful sensor-level landmarks over opposite sides of the scalp. The expected relationship is a hypothesis to test, not a reason to relabel an inconvenient result. Eye movements, muscle tension or cue differences can also predict class.
+# Motor imagery involves imagining movement without performing it. Changes in sensorimotor mu and beta activity can be informative, but they are not an invariant response in every trial. C3 and C4 are useful sensor-level landmarks over opposite sides of the scalp. The expected relationship is a hypothesis to test, not a reason to relabel an inconvenient result. Eye movements, muscle tension or cue differences can also predict class.
 #
 # A zero-mean sinusoid $x(t)=A\sin(2\pi ft)$ has mean-square power $A^2/2$ over complete cycles. Doubling amplitude quadruples power. For arbitrary EEG, a power spectral density distributes variance across frequency. A density in V²/Hz must be integrated over frequency to yield V²:
 #
@@ -147,7 +187,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · Shade the area that becomes a band-power feature
 #
-# **Try it:** Read the PSD units and the width of each band. Why is the area, rather than peak height alone, the feature?
+# **Independent exercise:** Read the PSD units and the width of each band. Why is the area, rather than peak height alone, the feature?
 
 # %%
 vis_t=np.arange(512)/128
@@ -171,7 +211,7 @@ ax.legend();plt.show()
 #
 # Compare two complete-cycle signals differing only in amplitude. Predict the power ratio.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -199,7 +239,7 @@ assert np.isclose(np.var(demo_large)/np.var(demo_small),4)
 #
 # Estimate the power of a known 10 Hz sinusoid by integrating its Welch spectrum.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -226,7 +266,7 @@ assert np.isclose(demo_power,.5,atol=.01)
 #
 # Build mu and beta powers for three artificial channels. Read the output shape aloud and associate each value with its channel and band.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -253,7 +293,7 @@ print(pd.DataFrame(demo_features,index=['channel A','channel B','channel C'],col
 #
 # Take two powers with a known ratio. Show why their log difference depends on the ratio rather than the absolute scale.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -280,7 +320,7 @@ assert np.isclose(np.diff(np.log(demo_p))[0],np.log(4))
 #
 # Implement mean_square on the final axis, returning one number per channel/trial. Explain when it equals variance.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def mean_square(values):
@@ -408,7 +448,7 @@ print('Epochs:', X.shape, 'run counts:', pd.Series(groups).value_counts().to_dic
 # %% [markdown]
 # ## Practice 2 · Verify the unit of generalization
 #
-# **Try it:** Print a run-by-class count table and identify what a held-out run measures.
+# **Independent exercise:** Print a run-by-class count table and identify what a held-out run measures.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -497,7 +537,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Name every feature column and inspect overlap
 #
-# **Try it:** Label the mu and beta features and compare C3 mu distributions by class.
+# **Independent exercise:** Label the mu and beta features and compare C3 mu distributions by class.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -570,7 +610,7 @@ assert np.isfinite(result['test_balanced_accuracy']).all()
 # %% [markdown]
 # ## Practice 4 · Locate the scaling boundary
 #
-# **Try it:** Should the scaler be fitted once on all feature rows before GroupKFold? Explain.
+# **Independent exercise:** Should the scaler be fitted once on all feature rows before GroupKFold? Explain.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -590,7 +630,7 @@ assert np.isfinite(result['test_balanced_accuracy']).all()
 # %% [markdown]
 # ## Practice 5 · Interpret a spectral difference cautiously
 #
-# **Try it:** Give one neural and one non-neural explanation for a left/right power difference.
+# **Independent exercise:** Give one neural and one non-neural explanation for a left/right power difference.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -608,9 +648,29 @@ assert np.isfinite(result['test_balanced_accuracy']).all()
 # A neural possibility is lateralized sensorimotor rhythm modulation during imagery. A non-neural possibility is different muscle tension or eye movement associated with the cues. Additional sensors, protocol controls and independent evaluation help distinguish them; classifier accuracy alone does not.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Display individual recorded trials with MNE's epoch-image API.
+inspection_epochs = epochs.copy().pick(['C3'])
+inspection_epochs.plot_image(picks=['C3'], sigma=0, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The image displays individual trials at C3; colour encodes voltage and the lower panel summarizes the evoked response. Inspect amplitude variability and temporal alignment. For motor imagery and SSVEP, a weak signed average can coexist with substantial induced or frequency-locked power; interpret this display alongside the spectral analysis. Trial order follows the loaded epoch object and is not a randomized validation split.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -642,3 +702,19 @@ assert np.isfinite(result['test_balanced_accuracy']).all()
 # [EEGBCI dataset and run mapping](https://mne.tools/stable/generated/mne.datasets.eegbci.load_data.html) · [Logistic regression](https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Pfurtscheller and Lopes da Silva (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles](https://doi.org/10.1016/S1388-2457(99)00141-8). Physiological and quantitative basis of ERD/ERS.

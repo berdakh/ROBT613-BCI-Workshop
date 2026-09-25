@@ -1,7 +1,7 @@
 # %% [markdown]
 # # 14 · From offline analysis to causal replay
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Process recorded EEG in chunks with persistent filter state and verify that chunking does not change the causal result.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Motor imagery and sensorimotor rhythms
+#
+# Motor imagery is the internal rehearsal of movement without overt execution. In a sensorimotor-rhythm BCI, the intended action is inferred from changes in oscillatory activity, commonly within the mu and beta ranges. Event-related desynchronization denotes reduced band power relative to a reference interval; it does not mean that the EEG voltage becomes uniformly negative. The spatial and temporal distributions are variable across participants and trials.
+#
+# A minimal cue-based experiment presents a fixation interval followed by a left- or right-hand instruction, an imagery interval and a rest interval. The participant imagines the kinesthetic sensation of movement while maintaining posture. An EEG cap, amplifier and acquisition computer record continuous signals; a stimulus computer records cue onset and class. Additional EOG or EMG channels, when actually acquired, can support artifact assessment. Their presence must not be assumed from scalp EEG alone.
+#
+# A trial is one instructed imagery interval; a run is a sequence of trials; a session is a recording visit. These levels are not exchangeable independent samples. Run-wise evaluation assesses transfer across recording blocks, whereas subject-wise evaluation addresses a different generalization claim. Averaging signed voltages can suppress induced rhythms whose phases vary between trials; band power or time–frequency estimates are therefore central measurements.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# PhysioNet EEGBCI: 64 scalp channels, 160 Hz. Runs 4, 8 and 12 encode imagined left/right fist movement; individual lessons may use only run 4. Acquisition used BCI2000. The original database also contains executed movements and other imagery tasks.
+#
+# **Acquisition reference:** [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Cue and task instruction → continuous EEG → imagery epoch → spectral/spatial features. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# A causal system satisfies $y[n]=F(x[0],\ldots,x[n])$. For a state-space filter, $s[n+1]=As[n]+Bx[n]$ and $y[n]=Cs[n]+Dx[n]$; state must persist between chunks. A trailing window of $L$ samples at endpoint $n$ is $x[n-L+1:n+1]$. Total response latency includes acquisition, window accumulation, filtering, computation and decision aggregation, not only Python execution time.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Widmann, Schröger and Maess (2015). Digital filter design for electrophysiological data—a practical approach](https://doi.org/10.1016/j.jneumeth.2014.08.002). Filter response, distortion and design considerations.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# An offline decoder sees an entire recording. A live interface receives one chunk at a time. We replay a recording under that constraint and inspect the state, timing and information boundaries needed for a credible online pipeline.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Distinguish causal filtering from zero-phase offline processing.
 # - Carry filter state across chunks and test chunk-size invariance.
@@ -152,7 +192,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · Align chunks, windows and decision time
 #
-# **Try it:** Which samples are allowed to influence the highlighted feature? Where does the newest sample fall?
+# **Independent exercise:** Which samples are allowed to influence the highlighted feature? Where does the newest sample fall?
 
 # %%
 fig,ax=plt.subplots(figsize=(11,3.5),constrained_layout=True)
@@ -174,7 +214,7 @@ plt.show()
 #
 # Compare a one-pass causal filter with two chunks sharing the final state.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -205,7 +245,7 @@ print('Chunked and one-pass causal outputs agree.')
 #
 # Repeat the second chunk without carrying state. Measure the resulting difference.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -230,7 +270,7 @@ print('Maximum reset error:',np.max(np.abs(demo_reset-demo_full)))
 #
 # A trailing two-second window at 128 Hz needs 256 samples. Compute the timestamp of its last sample under a zero-based clock.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -257,7 +297,7 @@ print('Nominal window duration:',demo_W/demo_fs,'s')
 #
 # Calculate how much data two neighboring feature windows share.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -283,7 +323,7 @@ print('Updates per second:',128/demo_step)
 #
 # Implement trailing_variance returning one variance per complete trailing window, with the specified step.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def trailing_variance(values, window, step):
@@ -390,7 +430,7 @@ sos = signal.butter(4, [8, 30], btype='bandpass', fs=fs, output='sos')
 # %% [markdown]
 # ## Practice 2 · Compute the buffer requirements
 #
-# **Try it:** How many samples are needed for two seconds of evidence and a quarter-second update interval at the actual sample rate?
+# **Independent exercise:** How many samples are needed for two seconds of evidence and a quarter-second update interval at the actual sample rate?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -513,7 +553,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Verify that chunk size does not change the filter
 #
-# **Try it:** Repeat the causal filter with three chunk sizes and compare with the one-pass reference.
+# **Independent exercise:** Repeat the causal filter with three chunk sizes and compare with the one-pass reference.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -615,7 +655,7 @@ print('Window duration:', window / fs, 's; update interval:', hop / fs, 's')
 # %% [markdown]
 # ## Practice 4 · Timestamp a decision by hand
 #
-# **Try it:** For an exclusive window endpoint e, which sample is the newest used and what is its timestamp?
+# **Independent exercise:** For an exclusive window endpoint e, which sample is the newest used and what is its timestamp?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -635,7 +675,7 @@ print('Window duration:', window / fs, 's; update interval:', hop / fs, 's')
 # %% [markdown]
 # ## Practice 5 · Add a sensible command policy
 #
-# **Try it:** Why should a live interface not emit a command on every threshold crossing?
+# **Independent exercise:** Why should a live interface not emit a command on every threshold crossing?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -653,9 +693,29 @@ print('Window duration:', window / fs, 's; update interval:', hop / fs, 's')
 # A policy may require sustained evidence, hysteresis, a refractory interval or a reject state. These reduce repeated false commands but can increase delay and missed commands. Calibrate them on appropriate data and evaluate false activations during no-control periods as well as intended selections.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Estimate the spectrum from the recorded EEG, retaining MNE metadata.
+recorded_spectrum = raw.compute_psd(method='welch', fmin=1, fmax=40, picks=['C3', 'Cz', 'C4'], n_fft=256, verbose=False)
+recorded_spectrum.plot(average=False, spatial_colors=False, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The horizontal axis represents frequency; the vertical axis represents spectral density on the scale indicated by MNE. Compare central channels and identify broad-band versus narrow-band structure. A spectral difference alone does not establish task discrimination. This panel uses recorded EEG; controlled examples elsewhere remain explicitly synthetic.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -687,3 +747,19 @@ print('Window duration:', window / fs, 's; update interval:', hop / fs, 's')
 # [SciPy SOS filtering](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.sosfilt.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Widmann, Schröger and Maess (2015). Digital filter design for electrophysiological data—a practical approach](https://doi.org/10.1016/j.jneumeth.2014.08.002). Filter response, distortion and design considerations.

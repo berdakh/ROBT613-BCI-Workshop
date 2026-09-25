@@ -1,7 +1,7 @@
 # %% [markdown]
 # # 08 · BCI Competition IV 2a: CSP and LDA
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Use actual competition motor-imagery data, learn spatial filters inside training folds and evaluate transfer across sessions.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Four-class motor imagery and competition evaluation
+#
+# The four-class motor-imagery paradigm distinguishes imagined movement of the left hand, right hand, both feet and tongue. Class-dependent sensorimotor power distributions motivate spatial filtering. Common spatial patterns (CSP) project channel measurements onto directions selected using training labels; the resulting components are statistical discriminants, not anatomical generators.
+#
+# A minimal experimental setup comprises a screen presenting class cues, an EEG amplifier, a scalp electrode montage and a synchronized event channel. The participant remains still and performs the instructed imagery during the task interval. Runs contain repeated trials of each class. Session separation introduces changes in electrode contact, participant state and signal statistics and therefore provides a more demanding evaluation than randomly partitioning nearby trials.
+#
+# The competition dataset provides an existing experiment; this notebook performs offline analysis, not a new intervention or online feedback study. Retain the subject, session and run identifiers throughout preprocessing. Hyperparameter selection must use only training groups. Inspection of a test-set signal may describe the recording but must not become an undocumented basis for feature selection.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# BCI Competition IV dataset 2a (MOABB BNCI2014_001): nine participants, 22 EEG channels and three EOG channels in the original acquisition, 250 Hz, two sessions, four imagery classes. The teaching analysis selects subject 1 and EEG channels.
+#
+# **Acquisition reference:** [BCI Competition IV, dataset 2a: original description](https://www.bbci.de/competition/iv/desc_2a.pdf). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Four-class cue → EEG and event acquisition → session-preserving epochs → CSP → classifier. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# For centered trial matrix $X_i$, a covariance estimate is $C_i=X_iX_i^\top/(T-1)$. Binary CSP maximizes $J(w)=w^\top C_1w/[w^\top(C_1+C_2)w]$, leading to $C_1w=\lambda(C_1+C_2)w$. A component feature is $\log\operatorname{var}(w^\top X_i)$. Multiclass implementations generalize this construction and need not correspond to one binary eigenproblem. Covariance regularization and all supervised filters must be fitted within training folds.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Pfurtscheller and Lopes da Silva (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles](https://doi.org/10.1016/S1388-2457(99)00141-8). Physiological and quantitative basis of ERD/ERS.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# Fixed C3/C4 features are a useful baseline, but information may be spread across the electrode array. Common spatial patterns learns sensor combinations whose variance distinguishes classes. We examine the mathematics before fitting the Competition IV 2a data.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Interpret a spatial filter as a weighted sensor sum.
 # - Derive the binary CSP variance-ratio objective.
@@ -135,7 +175,7 @@ plt.show()
 # %% [markdown]
 # ### Read a small example before a large one
 #
-# If class 1 has covariance `diag(4,1)` and class 2 has `diag(1,4)`, the original sensor directions already separate the variance patterns. The variance-ratio eigenvalues are 0.8 and 0.2. If both covariances are equal, there is no preferred discriminative direction. This example clarifies what the optimization seeks without asking students to interpret a large matrix blindly.
+# If class 1 has covariance `diag(4,1)` and class 2 has `diag(1,4)`, the original sensor directions already separate the variance patterns. The variance-ratio eigenvalues are 0.8 and 0.2. If both covariances are equal, there is no preferred discriminative direction. This example clarifies what the optimization seeks before extending the derivation to higher-dimensional matrices.
 #
 # Covariance estimates can be unstable when calibration data are limited or channels are strongly correlated. Regularization moves estimates toward a better-conditioned target. The tradeoff is bias versus variance; it is not a guarantee of higher held-out accuracy. Our pipeline uses regularized covariance and tunes only a small candidate set.
 
@@ -154,7 +194,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · Visualize the covariance contrast CSP seeks
 #
-# **Try it:** Which projection direction has larger variance for each class? Predict the two binary variance ratios.
+# **Independent exercise:** Which projection direction has larger variance for each class? Predict the two binary variance ratios.
 
 # %%
 vis_rng=np.random.default_rng(613)
@@ -177,7 +217,7 @@ ax.legend(loc='upper right',fontsize=9);plt.show()
 #
 # Calculate a sensor difference and a sensor average with one matrix multiplication.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -205,7 +245,7 @@ assert np.allclose(demo_Z[1],[2,2,2])
 #
 # Use diagonal class covariances and inspect the generalized eigenvalues.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -233,7 +273,7 @@ assert np.allclose(demo_eig,[.2,.8])
 #
 # Repeat the eigenproblem with identical covariance matrices.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -258,7 +298,7 @@ print('Equal-covariance ratios:',eigh(demo_same,2*demo_same)[0])
 #
 # Move an ill-conditioned covariance toward a scaled identity and compare condition numbers.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -286,7 +326,7 @@ for alpha in [0,.1,.5]:
 #
 # Implement variance_ratio for a vector and two class covariance matrices.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def variance_ratio(w, covariance_a, covariance_b):
@@ -405,7 +445,7 @@ test = ~train
 # %% [markdown]
 # ## Practice 2 · Inspect the session and run hierarchy
 #
-# **Try it:** Count trials per session and class, and count distinct calibration runs. Why does the hierarchy matter?
+# **Independent exercise:** Count trials per session and class, and count distinct calibration runs. Why does the hierarchy matter?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -502,7 +542,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Inspect model selection without touching the test result
 #
-# **Try it:** Display inner-validation means for the candidate CSP component counts. Which count was selected and why?
+# **Independent exercise:** Display inner-validation means for the candidate CSP component counts. Which count was selected and why?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -532,7 +572,7 @@ print('Chosen using calibration only:',search.best_params_)
 # %% [markdown]
 # ## Practice 4 · Find a leakage bug in a proposed shortcut
 #
-# **Try it:** A student fits CSP on X and y once, then cross-validates LDA on its output. What leaked?
+# **Independent exercise:** A student fits CSP on X and y once, then cross-validates LDA on its output. What leaked?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -606,7 +646,7 @@ print('Training epochs:', int(train.sum()), 'test epochs:', int(test.sum()))
 # %% [markdown]
 # ## Practice 5 · Distinguish patterns from filters
 #
-# **Try it:** Can the largest CSP coefficient be read as the location of the most active brain region? Explain.
+# **Independent exercise:** Can the largest CSP coefficient be read as the location of the most active brain region? Explain.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -624,9 +664,31 @@ print('Training epochs:', int(train.sum()), 'test epochs:', int(test.sum()))
 # No. Filters are weights used to form discriminative combinations; patterns describe how components project onto measured sensors. Neither is anatomical source localization. Signs and scales are arbitrary, and this course deliberately uses sensor-level interpretations only.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Display individual recorded trials with MNE's epoch-image API.
+inspection_epochs = epochs.copy().pick(['C3'])
+inspection_epochs.plot_image(picks=['C3'], sigma=0, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The image displays individual trials at C3; colour encodes voltage and the lower panel summarizes the evoked response. Inspect amplitude variability and temporal alignment. For motor imagery and SSVEP, a weak signed average can coexist with substantial induced or frequency-locked power; interpret this display alongside the spectral analysis. Trial order follows the loaded epoch object and is not a randomized validation split.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+#
+# The MNE time axis is relative to trial onset in this loader: 2.5–5.5 seconds corresponds to 0.5–3.5 seconds after the cue. Distinguish this coordinate convention from a cue-relative epoch axis.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -658,3 +720,21 @@ print('Training epochs:', int(train.sum()), 'test epochs:', int(test.sum()))
 # [Competition 2a via MOABB](https://moabb.neurotechx.com/docs/generated/moabb.datasets.BNCI2014_001.html) · [MNE CSP](https://mne.tools/stable/generated/mne.decoding.CSP.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [BCI Competition IV, dataset 2a: original description](https://www.bbci.de/competition/iv/desc_2a.pdf). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Pfurtscheller and Lopes da Silva (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles](https://doi.org/10.1016/S1388-2457(99)00141-8). Physiological and quantitative basis of ERD/ERS.
+#
+# - [Blankertz et al. (2008). Optimizing spatial filters for robust EEG single-trial analysis](https://doi.org/10.1109/MSP.2008.4408441). Spatial covariance methods for decoding.

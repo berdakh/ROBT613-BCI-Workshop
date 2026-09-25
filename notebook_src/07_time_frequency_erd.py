@@ -1,7 +1,7 @@
 # %% [markdown]
 # # 07 · Time–frequency analysis and ERD/ERS
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Compute wavelet power, normalize it to a pre-cue interval and interpret sensorimotor desynchronization.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Motor imagery and sensorimotor rhythms
+#
+# Motor imagery is the internal rehearsal of movement without overt execution. In a sensorimotor-rhythm BCI, the intended action is inferred from changes in oscillatory activity, commonly within the mu and beta ranges. Event-related desynchronization denotes reduced band power relative to a reference interval; it does not mean that the EEG voltage becomes uniformly negative. The spatial and temporal distributions are variable across participants and trials.
+#
+# A minimal cue-based experiment presents a fixation interval followed by a left- or right-hand instruction, an imagery interval and a rest interval. The participant imagines the kinesthetic sensation of movement while maintaining posture. An EEG cap, amplifier and acquisition computer record continuous signals; a stimulus computer records cue onset and class. Additional EOG or EMG channels, when actually acquired, can support artifact assessment. Their presence must not be assumed from scalp EEG alone.
+#
+# A trial is one instructed imagery interval; a run is a sequence of trials; a session is a recording visit. These levels are not exchangeable independent samples. Run-wise evaluation assesses transfer across recording blocks, whereas subject-wise evaluation addresses a different generalization claim. Averaging signed voltages can suppress induced rhythms whose phases vary between trials; band power or time–frequency estimates are therefore central measurements.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# PhysioNet EEGBCI: 64 scalp channels, 160 Hz. Runs 4, 8 and 12 encode imagined left/right fist movement; individual lessons may use only run 4. Acquisition used BCI2000. The original database also contains executed movements and other imagery tasks.
+#
+# **Acquisition reference:** [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Cue and task instruction → continuous EEG → imagery epoch → spectral/spatial features. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# For wavelet $\psi_f$, $W_i(c,f,t)=(x_{ic}*\psi_f)(t)$ and $P_i(c,f,t)=|W_i(c,f,t)|^2$. Let $B_i(c,f)$ be mean baseline power. Relative power is $100(P_i-B_i)/B_i$ percent; decibel change is $10\log_{10}(P_i/B_i)$. Negative values indicate reduced power under these conventions. The logarithm of an average and the average of logarithms are generally unequal; the order of normalization and averaging must be stated.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Pfurtscheller and Lopes da Silva (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles](https://doi.org/10.1016/S1388-2457(99)00141-8). Physiological and quantitative basis of ERD/ERS.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# A whole-trial spectrum shows modest mu power, but does not tell us when imagery changed that rhythm. We use time-frequency analysis to distinguish a sustained rhythm from an event-related reduction.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Explain the time–frequency resolution tradeoff.
 # - Distinguish averaging signals from averaging their power.
@@ -153,7 +193,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · See a rhythm disappear in time and frequency
 #
-# **Try it:** The 10 Hz amplitude changes halfway through the trace. Predict the approximate power reduction and where a finite window will blur its onset.
+# **Independent exercise:** The 10 Hz amplitude changes halfway through the trace. Predict the approximate power reduction and where a finite window will blur its onset.
 
 # %%
 vis_fs=128;vis_t=np.arange(768)/vis_fs
@@ -177,7 +217,7 @@ fig.colorbar(vis_im,ax=axes[1],label='Power density (dB re 1 unit²/Hz)');plt.sh
 #
 # Create two equally strong rhythms in opposite phase. Compare the power of their average with their average power.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -204,7 +244,7 @@ print('Average power:',np.mean(demo_trials**2))
 #
 # Use baseline power 10 and task powers 5, 10 and 15. Predict the signs and ordering.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -230,7 +270,7 @@ print(pd.DataFrame({'power':demo_task,'percent':100*(demo_task/demo_baseline-1),
 #
 # Compare fixed cycles with cycles proportional to frequency. Keep track of seconds rather than only the cycle count.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -255,7 +295,7 @@ print(pd.DataFrame({'Hz':demo_f,'sigma_s_fixed_5':5/(2*np.pi*demo_f),'sigma_s_pr
 #
 # Compare taking a mean after a log with taking a log after a mean.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -281,7 +321,7 @@ print('Log mean power:',np.log10(demo_p.mean()))
 #
 # Implement relative_db for positive power and baseline arrays using broadcasting.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def relative_db(power, baseline):
@@ -388,7 +428,7 @@ epochs = mne.Epochs(raw, events, {'left': 1, 'right': 2}, -1, 4, baseline=None, 
 # %% [markdown]
 # ## Practice 2 · Check whether the epoch supports the planned analysis
 #
-# **Try it:** Print the extracted interval, sampling rate and channel names. Identify the interior interval used in the main plot.
+# **Independent exercise:** Print the extracted interval, sampling rate and channel names. Identify the interior interval used in the main plot.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -481,7 +521,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Extract one trial-level ERD feature
 #
-# **Try it:** Calculate C3 average power in 8–12 Hz during 0.5–2.5 s relative to the pre-cue baseline for every trial.
+# **Independent exercise:** Calculate C3 average power in 8–12 Hz during 0.5–2.5 s relative to the pre-cue baseline for every trial.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -516,7 +556,7 @@ assert lab_erd.shape==(len(epochs),)
 # %% [markdown]
 # ## Practice 4 · Explain a negative color in the ERD map
 #
-# **Try it:** Does −3 dB mean the signal has negative power? Give the ratio corresponding to −3 dB.
+# **Independent exercise:** Does −3 dB mean the signal has negative power? Give the ratio corresponding to −3 dB.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -536,7 +576,7 @@ assert lab_erd.shape==(len(epochs),)
 # %% [markdown]
 # ## Practice 5 · Choose cycles for a different question
 #
-# **Try it:** Would more cycles be preferable for identifying an abrupt onset or for distinguishing close frequencies? Explain the tradeoff.
+# **Independent exercise:** Would more cycles be preferable for identifying an abrupt onset or for distinguishing close frequencies? Explain the tradeoff.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -554,9 +594,29 @@ assert lab_erd.shape==(len(epochs),)
 # More cycles generally improve frequency selectivity while broadening temporal support. Fewer cycles help localize a rapid change but blur frequency distinctions. The choice should follow the question and be reported with the baseline and plotted interval, rather than selected for the most attractive map.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Display individual recorded trials with MNE's epoch-image API.
+inspection_epochs = epochs.copy().pick(['C3'])
+inspection_epochs.plot_image(picks=['C3'], sigma=0, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The image displays individual trials at C3; colour encodes voltage and the lower panel summarizes the evoked response. Inspect amplitude variability and temporal alignment. For motor imagery and SSVEP, a weak signed average can coexist with substantial induced or frequency-locked power; interpret this display alongside the spectral analysis. Trial order follows the loaded epoch object and is not a randomized validation split.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -588,3 +648,19 @@ assert lab_erd.shape==(len(epochs),)
 # [MNE time-frequency analysis](https://mne.tools/stable/auto_tutorials/time-freq/20_sensors_time_frequency.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Pfurtscheller and Lopes da Silva (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles](https://doi.org/10.1016/S1388-2457(99)00141-8). Physiological and quantitative basis of ERD/ERS.

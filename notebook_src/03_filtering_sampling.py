@@ -1,7 +1,7 @@
 # %% [markdown]
 # # 03 · Filtering, sampling and spectral inspection
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Design and inspect EEG filters, distinguish offline and causal processing, and measure attenuation on real EEG.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Motor imagery and sensorimotor rhythms
+#
+# Motor imagery is the internal rehearsal of movement without overt execution. In a sensorimotor-rhythm BCI, the intended action is inferred from changes in oscillatory activity, commonly within the mu and beta ranges. Event-related desynchronization denotes reduced band power relative to a reference interval; it does not mean that the EEG voltage becomes uniformly negative. The spatial and temporal distributions are variable across participants and trials.
+#
+# A minimal cue-based experiment presents a fixation interval followed by a left- or right-hand instruction, an imagery interval and a rest interval. The participant imagines the kinesthetic sensation of movement while maintaining posture. An EEG cap, amplifier and acquisition computer record continuous signals; a stimulus computer records cue onset and class. Additional EOG or EMG channels, when actually acquired, can support artifact assessment. Their presence must not be assumed from scalp EEG alone.
+#
+# A trial is one instructed imagery interval; a run is a sequence of trials; a session is a recording visit. These levels are not exchangeable independent samples. Run-wise evaluation assesses transfer across recording blocks, whereas subject-wise evaluation addresses a different generalization claim. Averaging signed voltages can suppress induced rhythms whose phases vary between trials; band power or time–frequency estimates are therefore central measurements.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# PhysioNet EEGBCI: 64 scalp channels, 160 Hz. Runs 4, 8 and 12 encode imagined left/right fist movement; individual lessons may use only run 4. Acquisition used BCI2000. The original database also contains executed movements and other imagery tasks.
+#
+# **Acquisition reference:** [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Cue and task instruction → continuous EEG → imagery epoch → spectral/spatial features. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# A discrete linear time-invariant filter has $y[n]=\sum_k h[k]x[n-k]$ and frequency response $H(f)=\sum_k h[k]e^{-j2\pi fk/f_s}$. For a symmetric causal FIR of length $L$, group delay is $(L-1)/(2f_s)$ seconds. Forward–backward filtering has effective magnitude $|H(f)|^2$ and is noncausal. Nyquist frequency is $f_s/2$; anti-alias filtering is required before reducing sampling frequency.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Widmann, Schröger and Maess (2015). Digital filter design for electrophysiological data—a practical approach](https://doi.org/10.1016/j.jneumeth.2014.08.002). Filter response, distortion and design considerations.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# A colleague says, “I filtered the EEG at 30 Hz.” You cannot reproduce that statement yet: was it a low-pass or bandpass, what was the transition width, and did the filter use future samples? This lesson turns an informal preprocessing statement into an inspectable signal-processing method.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Relate convolution, impulse response and frequency response.
 # - Measure passband behavior, transition width and causal delay.
@@ -139,7 +179,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · Watch convolution build an output
 #
-# **Try it:** At output index 3, which three input samples are included? Calculate their weighted sum before reading the bars.
+# **Independent exercise:** At output index 3, which three input samples are included? Calculate their weighted sum before reading the bars.
 
 # %%
 vis_x=np.array([0.,0.,3.,0.,0.,0.]);vis_h=np.ones(3)/3
@@ -163,7 +203,7 @@ plt.show()
 #
 # A three-sample moving average uses weights [1/3, 1/3, 1/3]. For the sequence [0, 0, 3, 0, 0], predict the full convolution. The response to a single impulse reveals the filter itself.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -191,7 +231,7 @@ assert np.allclose(demo_output,[0,0,1,1,1,0,0])
 #
 # At a sample rate of 100 Hz, a cosine at 70 Hz and one at 30 Hz produce the same samples. Compute the two sequences and compare. Cosine avoids the sign reversal that appears in the analogous sine example.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -220,7 +260,7 @@ assert np.allclose(high,aliased,atol=1e-12)
 #
 # Hold the passband fixed and change the number of taps. Use the same axes. Calculate the delay for a symmetric causal FIR and compare the transition shapes.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -251,7 +291,7 @@ ax.legend();plt.show()
 #
 # Mix 10 Hz and 70 Hz activity at 200 Hz, then reduce to 100 Hz. Compare direct slicing with a resampling method that includes anti-alias filtering.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -284,7 +324,7 @@ ax.legend();plt.show()
 #
 # Implement `fir_delay`. Check that doubling the sampling rate halves delay in seconds for the same tap count.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def fir_delay(n_taps, sampling_rate):
@@ -375,7 +415,7 @@ print('Channel types:', set(raw.get_channel_types()))
 # %% [markdown]
 # ## Practice 2 · Calculate the Nyquist limit and sample interval
 #
-# **Try it:** Read the real sampling rate. Compute the highest representable frequency and milliseconds per sample.
+# **Independent exercise:** Read the real sampling rate. Compute the highest representable frequency and milliseconds per sample.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -459,7 +499,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Decide whether to add a notch
 #
-# **Try it:** Does every EEG pipeline need a 50 or 60 Hz notch? Use the displayed spectra and chosen passband to explain.
+# **Independent exercise:** Does every EEG pipeline need a 50 or 60 Hz notch? Use the displayed spectra and chosen passband to explain.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -555,7 +595,7 @@ assert resampled.info['sfreq'] == 100
 # %% [markdown]
 # ## Practice 4 · Measure the filter’s causal delay
 #
-# **Try it:** Locate the symmetry center of the 129-tap FIR and convert it to seconds. Repeat the calculation for 65 taps without changing the sample rate.
+# **Independent exercise:** Locate the symmetry center of the 129-tap FIR and convert it to seconds. Repeat the calculation for 65 taps without changing the sample rate.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -586,7 +626,7 @@ assert np.allclose(h,h[::-1])
 # %% [markdown]
 # ## Practice 5 · Explain why slicing is not resampling
 #
-# **Try it:** A student writes raw_data[:, ::2]. What extra operation is needed before treating that as downsampled EEG?
+# **Independent exercise:** A student writes raw_data[:, ::2]. What extra operation is needed before treating that as downsampled EEG?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -604,9 +644,29 @@ assert np.allclose(h,h[::-1])
 # Apply appropriate anti-alias filtering before decimation, or use a resampling function that performs it. Also update sampling metadata and event timing consistently. Direct slicing of a 70 Hz component from 200 to 100 Hz creates an apparent 30 Hz component.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Estimate the spectrum from the recorded EEG, retaining MNE metadata.
+recorded_spectrum = raw.compute_psd(method='welch', fmin=1, fmax=40, picks=['C3', 'Cz', 'C4'], n_fft=256, verbose=False)
+recorded_spectrum.plot(average=False, spatial_colors=False, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The horizontal axis represents frequency; the vertical axis represents spectral density on the scale indicated by MNE. Compare central channels and identify broad-band versus narrow-band structure. A spectral difference alone does not establish task discrimination. This panel uses recorded EEG; controlled examples elsewhere remain explicitly synthetic.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -638,3 +698,19 @@ assert np.allclose(h,h[::-1])
 # [MNE filtering background](https://mne.tools/stable/auto_tutorials/preprocessing/25_background_filtering.html) · [SciPy signal](https://docs.scipy.org/doc/scipy/reference/signal.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Widmann, Schröger and Maess (2015). Digital filter design for electrophysiological data—a practical approach](https://doi.org/10.1016/j.jneumeth.2014.08.002). Filter response, distortion and design considerations.

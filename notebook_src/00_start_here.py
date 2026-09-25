@@ -1,7 +1,7 @@
 # %% [markdown]
-# # 00 · Your first EEG in MNE
+# # 00 · Initial EEG analysis in MNE
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Inspect sampling, voltage units, channel names and event markers; understand the Raw → Epochs → Evoked workflow before starting the P300 track.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Motor imagery and sensorimotor rhythms
+#
+# Motor imagery is the internal rehearsal of movement without overt execution. In a sensorimotor-rhythm BCI, the intended action is inferred from changes in oscillatory activity, commonly within the mu and beta ranges. Event-related desynchronization denotes reduced band power relative to a reference interval; it does not mean that the EEG voltage becomes uniformly negative. The spatial and temporal distributions are variable across participants and trials.
+#
+# A minimal cue-based experiment presents a fixation interval followed by a left- or right-hand instruction, an imagery interval and a rest interval. The participant imagines the kinesthetic sensation of movement while maintaining posture. An EEG cap, amplifier and acquisition computer record continuous signals; a stimulus computer records cue onset and class. Additional EOG or EMG channels, when actually acquired, can support artifact assessment. Their presence must not be assumed from scalp EEG alone.
+#
+# A trial is one instructed imagery interval; a run is a sequence of trials; a session is a recording visit. These levels are not exchangeable independent samples. Run-wise evaluation assesses transfer across recording blocks, whereas subject-wise evaluation addresses a different generalization claim. Averaging signed voltages can suppress induced rhythms whose phases vary between trials; band power or time–frequency estimates are therefore central measurements.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# PhysioNet EEGBCI: 64 scalp channels, 160 Hz. Runs 4, 8 and 12 encode imagined left/right fist movement; individual lessons may use only run 4. Acquisition used BCI2000. The original database also contains executed movements and other imagery tasks.
+#
+# **Acquisition reference:** [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Cue and task instruction → continuous EEG → imagery epoch → spectral/spatial features. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# For channel $c$ and sample $n$, $x_c[n]=v_c(n/f_s)-v_{\mathrm{ref}}(n/f_s)$ is a potential difference in volts. Here $f_s$ is sampling frequency in hertz. A time interval $T$ contains approximately $Tf_s$ sampling intervals; an inclusive epoch from $t_a$ to $t_b$ generally contains $\operatorname{round}((t_b-t_a)f_s)+1$ samples. Distinguish the number of samples from elapsed duration. MNE preserves time and sensor metadata alongside the numerical array.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Pfurtscheller and Lopes da Silva (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles](https://doi.org/10.1016/S1388-2457(99)00141-8). Physiological and quantitative basis of ERD/ERS.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# You have received a recording with 64 EEG channels and event markers. Before analyzing any brain response, a collaborator asks three simple questions: what does one number mean, what does one axis mean, and where does an event fall in that array? Today we build the answers from a tiny signal whose properties we know.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Translate among samples, seconds, volts and microvolts without changing the measurement.
 # - Read array shapes aloud and identify which axis an operation reduces.
@@ -143,7 +183,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · See the three array axes
 #
-# **Try it:** Locate one trial, one channel and one time point. Which axis disappears when we calculate an ERP?
+# **Independent exercise:** Locate one trial, one channel and one time point. Which axis disappears when we calculate an ERP?
 
 # %%
 vis_values=np.arange(24).reshape(2,3,4)
@@ -166,7 +206,7 @@ plt.show()
 #
 # Predict before running: how many samples are in 2 seconds at 128 Hz? What time is sample 64? Calculate both on paper. We explicitly separate a **duration** from the timestamp of the last sample.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -196,7 +236,7 @@ assert sample_count==256 and sample_times[64]==.5
 #
 # We make a tiny array with two trials, three channels and four times. Trace the first trial by hand. Do not use EEG-sized arrays until you can explain these smaller reductions.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -224,7 +264,7 @@ print('Shapes:',toy_epochs.shape,toy_epochs.mean(0).shape,toy_epochs.mean(-1).sh
 #
 # A 20 µV sample is stored as $20\times10^{-6}$ V. Perform the conversion once at import or presentation, not repeatedly at every processing step. Dimensional analysis is a useful debugging tool.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -252,7 +292,7 @@ assert np.allclose(voltage_V*1e6,voltage_uV)
 #
 # For independent noise $\epsilon_i$ with variance $\sigma^2$, the average has variance $\sigma^2/N$. Now compare independent trial noise with an artifact copied identically into every trial. The shared component survives averaging.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -285,7 +325,7 @@ ax.legend();plt.show()
 #
 # Implement `to_volts` below and test positive, negative and zero values. Explain why the plotting label alone cannot repair incorrectly stored units.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def to_volts(values_uV):
@@ -400,7 +440,7 @@ assert raw.get_data().shape == (2, 1280)
 # %% [markdown]
 # ## Practice 2 · Change the clock without changing the samples
 #
-# **Try it:** Make a second Raw object with the same samples but twice the sampling rate. Predict its duration and apparent oscillation frequency.
+# **Independent exercise:** Make a second Raw object with the same samples but twice the sampling rate. Predict its duration and apparent oscillation frequency.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -469,7 +509,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Trace one epoch back to its source
 #
-# **Try it:** Find the first epoch’s event sample, relative time zero and number of time samples. Explain why there are more than 0.8 × 128 samples.
+# **Independent exercise:** Find the first epoch’s event sample, relative time zero and number of time samples. Explain why there are more than 0.8 × 128 samples.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -500,7 +540,7 @@ print('Nearest zero-time index:',np.argmin(abs(epochs.times)))
 # %% [markdown]
 # ## Practice 4 · Explain an axis error before coding
 #
-# **Try it:** A friend uses X.mean(axis=-1) and calls the result an ERP. Write the output shape and correct the operation.
+# **Independent exercise:** A friend uses X.mean(axis=-1) and calls the result an ERP. Write the output shape and correct the operation.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -520,7 +560,7 @@ print('Nearest zero-time index:',np.argmin(abs(epochs.times)))
 # %% [markdown]
 # ## Practice 5 · Explain what a copy protects
 #
-# **Try it:** Why do we write raw.copy().filter(...) when comparing filtered and original signals?
+# **Independent exercise:** Why do we write raw.copy().filter(...) when comparing filtered and original signals?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -538,9 +578,34 @@ print('Nearest zero-time index:',np.argmin(abs(epochs.times)))
 # A copy gives the transformation its own data object. Without it, the “before” trace may already be filtered, making the comparison misleading. Copying does not create an independent biological recording and must never be used to inflate a sample count.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+from mne.datasets import eegbci
+recording_paths = eegbci.load_data(1, [4], path=DATA_ROOT, update_path=False, verbose=False)
+recorded_raw = mne.io.read_raw_edf(recording_paths[0], preload=True, verbose=False)
+eegbci.standardize(recorded_raw)
+recorded_raw.set_montage('standard_1005')
+# Estimate the spectrum from the recorded EEG, retaining MNE metadata.
+recorded_spectrum = recorded_raw.compute_psd(method='welch', fmin=1, fmax=40, picks=['C3', 'Cz', 'C4'], n_fft=256, verbose=False)
+recorded_spectrum.plot(average=False, spatial_colors=False, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The horizontal axis represents frequency; the vertical axis represents spectral density on the scale indicated by MNE. Compare central channels and identify broad-band versus narrow-band structure. A spectral difference alone does not establish task discrimination. This panel uses recorded EEG; controlled examples elsewhere remain explicitly synthetic.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -572,3 +637,19 @@ print('Nearest zero-time index:',np.argmin(abs(epochs.times)))
 # [MNE data structures](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Continue to notebook 01.
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Pfurtscheller and Lopes da Silva (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles](https://doi.org/10.1016/S1388-2457(99)00141-8). Physiological and quantitative basis of ERD/ERS.

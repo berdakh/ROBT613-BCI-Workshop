@@ -1,7 +1,7 @@
 # %% [markdown]
 # # 10 · SSVEP: spectral peaks and canonical correlation
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Decode 12 versus 15 Hz visual stimulation using spectral signal-to-noise ratio and a sinusoidal-reference CCA decoder.
@@ -11,26 +11,66 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Steady-state visual evoked potentials
+#
+# A steady-state visual evoked potential (SSVEP) is a sustained response associated with periodic visual stimulation. The recorded spectrum may contain the stimulation frequency and its harmonics. Frequency tagging associates candidate selections with distinct periodic stimuli. Classification compares spectral or multichannel temporal structure with those candidates; it need not train a conventional supervised classifier.
+#
+# An instructional setup uses a display with accurately controlled temporal modulation, an EEG system with posterior scalp coverage and event synchronization. The participant attends to a specified stimulus during each trial. Display refresh rate constrains the realizable modulation sequence. The intended frequency, stimulus onset, trial duration and participant instruction must be recorded independently of EEG-derived predictions.
+#
+# The analysis interval determines frequency resolution. A narrow spectral peak may support frequency tagging, but does not by itself establish intention decoding or robustness in an asynchronous interface. Canonical correlation analysis (CCA) compares multichannel EEG with sinusoidal reference signals. Reference frequencies and harmonic counts are analysis assumptions and must be specified before evaluating labels.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# MNE SSVEP dataset, participant 02, session 01; the lesson uses 12 and 15 Hz event classes and posterior EEG channels. Sampling frequency and event counts are read from the recording rather than inferred from a plot.
+#
+# **Acquisition reference:** [MNE SSVEP acquisition and analysis tutorial](https://mne.tools/stable/auto_tutorials/time-freq/50_ssvep.html). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Periodic visual stimulus → posterior EEG → analysis window → spectral/CCA evidence. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# For candidate $f$, reference rows comprise $\sin(2\pi hft)$ and $\cos(2\pi hft)$, $h=1,\ldots,H$. CCA finds $\rho_f=\max_{a,b}\operatorname{corr}(a^\top X,b^\top Y_f)$; prediction is $\arg\max_f\rho_f$. The fundamental Fourier-bin spacing for duration $T$ is $1/T$. Zero padding interpolates the spectrum without increasing the information supplied by the recording duration.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+#
+#
+# **Methodological reading:** [Lin et al. (2006). Frequency recognition based on canonical correlation analysis for SSVEP-based BCIs](https://doi.org/10.1109/TBME.2006.886577). Sinusoidal-reference CCA.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# A participant attends to one of two flickering targets. Can a few seconds of occipital EEG identify the attended frequency? We compare spectral evidence with a multichannel correlation method and examine the assumptions behind a fast decision.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Relate observation duration to frequency discrimination.
 # - Build sine/cosine reference matrices with harmonics.
@@ -152,7 +192,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · Match references at the candidate frequencies
 #
-# **Try it:** Follow one cycle of each reference. What does adding cosine allow that sine alone does not?
+# **Independent exercise:** Follow one cycle of each reference. What does adding cosine allow that sine alone does not?
 
 # %%
 vis_t=np.arange(128)/128
@@ -174,7 +214,7 @@ plt.show()
 #
 # Calculate the bin spacing for short and long windows. Identify which durations provide a bin separation smaller than 1 Hz.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -199,7 +239,7 @@ for duration in [.5,1,2,4]:
 #
 # Represent a phase-shifted 12 Hz signal as a weighted sum of sine and cosine references.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -228,7 +268,7 @@ assert np.allclose(demo_Y@demo_coef,demo_wave)
 #
 # Construct two harmonics and inspect their shapes. The samples are rows, matching scikit-learn’s observation convention.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -254,7 +294,7 @@ print('Matrix rank:',np.linalg.matrix_rank(demo_ref))
 #
 # Apply two confidence thresholds to fixed illustrative decisions. Report the accepted fraction as well as accepted accuracy.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -282,7 +322,7 @@ for threshold in [.3,.7]:
 #
 # Implement harmonic_reference returning samples × (2 × harmonics), alternating sine and cosine.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def harmonic_reference(times, frequency, harmonics=2):
@@ -395,7 +435,7 @@ print('Original-trial decisions:', len(y), 'classes:', np.unique(y))
 # %% [markdown]
 # ## Practice 2 · Calculate the observed duration and frequency scale
 #
-# **Try it:** Print sample count, sample rate, first-to-last timestamp span and nominal N/fs duration. Compare their inverse frequency scales.
+# **Independent exercise:** Print sample count, sample rate, first-to-last timestamp span and nominal N/fs duration. Compare their inverse frequency scales.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -511,7 +551,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 3 · Explain a spectral signal-to-noise ratio
 #
-# **Try it:** Why leave guard bins around the target when estimating local background power?
+# **Independent exercise:** Why leave guard bins around the target when estimating local background power?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -597,7 +637,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 4 · Inspect confidence margins without tuning a threshold
 #
-# **Try it:** Compute the difference between the strongest and second strongest CCA score for each trial. Show the five smallest margins.
+# **Independent exercise:** Compute the difference between the strongest and second strongest CCA score for each trial. Show the five smallest margins.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -629,7 +669,7 @@ print(lab_table.sort_values('CCA_margin').head())
 # %% [markdown]
 # ## Practice 5 · Design a no-control test
 #
-# **Try it:** What additional recordings are needed before turning every CCA argmax into a user command?
+# **Independent exercise:** What additional recordings are needed before turning every CCA argmax into a user command?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -647,9 +687,29 @@ print(lab_table.sort_values('CCA_margin').head())
 # Include rest/no-intention periods, gaze transitions and representative artifacts with known timing. Evaluate false commands per unit time, missed intended commands, accepted coverage and latency. A reject policy must be calibrated separately. Two-class cued accuracy alone cannot establish this behavior.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Display individual recorded trials with MNE's epoch-image API.
+inspection_epochs = epochs.copy().pick(['Oz'])
+inspection_epochs.plot_image(picks=['Oz'], sigma=0, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# The image displays individual trials at Oz; colour encodes voltage and the lower panel summarizes the evoked response. Inspect amplitude variability and temporal alignment. For motor imagery and SSVEP, a weak signed average can coexist with substantial induced or frequency-locked power; interpret this display alongside the spectral analysis. Trial order follows the loaded epoch object and is not a randomized validation split.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -681,3 +741,19 @@ print(lab_table.sort_values('CCA_margin').head())
 # [MNE SSVEP tutorial and provenance](https://mne.tools/stable/auto_tutorials/time-freq/50_ssvep.html) · [CCA API](https://scikit-learn.org/stable/modules/generated/sklearn.cross_decomposition.CCA.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [MNE SSVEP acquisition and analysis tutorial](https://mne.tools/stable/auto_tutorials/time-freq/50_ssvep.html). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
+#
+#
+# ### Primary methodological literature
+#
+# - [Lin et al. (2006). Frequency recognition based on canonical correlation analysis for SSVEP-based BCIs](https://doi.org/10.1109/TBME.2006.886577). Sinusoidal-reference CCA.

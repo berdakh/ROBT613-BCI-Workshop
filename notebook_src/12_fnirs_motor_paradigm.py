@@ -1,7 +1,7 @@
 # %% [markdown]
 # # 12 · Beyond EEG: fNIRS motor responses
 #
-# **ROBT613 · Brain–Computer Interfaces** | Teaching session + independent lab
+# **ROBT613 · Brain–Computer Interfaces** | Academic tutorial and independent exercises
 #
 # ## Goal
 # Convert optical intensity to hemoglobin changes and compare a slow hemodynamic paradigm with electrophysiological BCI.
@@ -11,26 +11,63 @@
 # Run cells from top to bottom in a fresh CPU runtime. No previous notebook state is required.
 
 # %% [markdown]
+# ## Paradigm background and experimental design
+#
+# ### Motor execution and haemodynamic measurement
+#
+# Functional near-infrared spectroscopy (fNIRS) measures changes in detected light intensity at multiple wavelengths. Under the modified Beer–Lambert model, changes in optical density are related to changes in oxygenated and deoxygenated haemoglobin concentration. This is an indirect haemodynamic measurement, whereas EEG measures electrical potential differences. Their units, response times and artifact mechanisms differ.
+#
+# A minimal motor experiment places optical sources and detectors over relevant scalp regions and alternates left-hand tapping, right-hand tapping and control intervals. The acquisition system records intensity at each source–detector pair and wavelength; task markers define the experimental conditions. Optode contact and systemic physiology affect measurements. Short-separation measurements may support superficial-signal regression when present, but should not be invented for a dataset that lacks them.
+#
+# The present recording concerns executed finger tapping, not motor imagery. The haemodynamic response develops over seconds, so EEG-style short epochs and high-frequency band features are inappropriate. A haemoglobin response supports a physiological observation; a usable fNIRS BCI additionally requires prospective prediction, latency assessment and evaluation on independent data.
+#
+# ### Acquisition provenance and instructional protocol
+#
+# MNE motor fNIRS dataset, Participant 1; NIRX intensity is converted to optical density and haemoglobin estimates. The existing lesson specifies its pathlength factor, channel-quality criterion and epoch interval explicitly.
+#
+# **Acquisition reference:** [MNE motor fNIRS acquisition and analysis tutorial](https://mne.tools/stable/auto_tutorials/preprocessing/70_fnirs_processing.html). The sampling rate of processed epochs can differ from the original acquisition rate after explicit resampling.
+#
+# | Experimental component | Required record and analytical purpose |
+# |---|---|
+# | Participant instruction | Defines the task and distinguishes attention, imagery and execution |
+# | Stimulus/event clock | Provides onset markers for alignment; its synchronization must be documented |
+# | Measurement hardware | Records sensor type, locations, reference and original sampling frequency |
+# | Trial, run and session log | Preserves dependence structure and supports appropriate validation |
+# | Quality observations | Records movement, contact failures and rejected intervals without changing labels |
+#
+# **Experimental sequence:** Finger tapping → optical intensity → optical density → haemoglobin → condition response. Exact cue durations and hardware settings must be obtained from the original protocol; the analysis windows below are explicitly chosen processing intervals.
+#
+# ### Measurement model and interpretation
+#
+# For EEG, a sensor measures a potential difference, not neuronal firing rate. The observed signal combines neural activity, physiological interference, environmental interference and measurement noise. Filtering or projection changes this mixture and cannot establish that the remaining signal is exclusively neural. For fNIRS, replace the electrical measurement model with the optical model defined below. Experimental labels are external observations; they must not be reconstructed from a classifier's predictions.
+#
+# ### Mathematical definitions for this lesson
+#
+# Optical-density change is $\Delta OD_\lambda(t)=-\ln[I_\lambda(t)/I_{\lambda,0}]$. A simplified modified Beer–Lambert relation is $\Delta OD_\lambda=d\,DPF_\lambda[\epsilon_{\lambda,O}\Delta c_O+\epsilon_{\lambda,R}\Delta c_R]$. Here $d$ is source–detector distance, $DPF$ is a pathlength factor, $\epsilon$ denotes absorption coefficients, and $\Delta c$ denotes concentration change. Numerical constants must use a consistent logarithm and unit convention. The conversion model does not separate cortical from systemic contributions by itself.
+#
+# Throughout, $i$ indexes trials, $c$ channels, $k$ samples, $N$ trials, $C$ channels and $T$ samples per trial unless a local definition states otherwise. An EEG epoch array has shape $(N,C,T)$; classifier features have shape $(N,d)$. A change of representation must preserve the correspondence between observations and labels.
+
+# %% [markdown]
 # ## How to study this notebook
 #
 # This is both the classroom lesson and the independent-study workbook. Everything needed for the exercises—questions, hints, executable solutions, checks and explanations—is here. Work from top to bottom in a fresh runtime.
 #
 # 1. Read the question and calculate a small example on paper.
 # 2. Write your prediction before running the next code cell.
-# 3. Try the practice task in its workspace.
-# 4. Continue to the worked solution and compare the reasoning, not just the number.
+# 3. Complete the analytical task in its workspace.
+# 4. Continue to the worked solution and compare the reasoning, as well as the numerical result.
 # 5. Change one parameter and explain what the result means.
 #
-# **For a live class:** pause at each “Try it” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
+# **For a live class:** pause at each “Independent exercise” heading. The solution follows in the same notebook, so no separate answer document is required. Saved figures support reading without execution; downloading real data and rerunning cells requires internet on the first run. Code comments explain each analysis statement, and longer loops are explained before execution.
 #
 # **Prerequisites:** basic Python arrays, arithmetic and plotting. The symbol guide below defines the mathematical notation used here. These lessons stay at the sensor level; EEG source imaging is outside the course.
 
 # %% [markdown]
-# ## The question for today
+# ## Analytical objectives
 #
-# A motor task changes measured light intensity rather than voltage. We follow that measurement through optical density and hemoglobin conversion, then compare its slow response with the EEG paradigms studied earlier.
+# This lesson examines the relationship between the experimental task, the measured signal and the assumptions of the analysis. Interpret each computational result in relation to the acquisition protocol and the stated evaluation design.
 #
-# ### By the end you should be able to
+# ### Learning outcomes
 #
 # - Explain intensity, optical density and relative hemoglobin concentration as distinct quantities.
 # - Describe the assumptions of the modified Beer–Lambert conversion.
@@ -156,7 +193,7 @@ plt.show()
 # %% [markdown]
 # ## Visual intuition · Follow light attenuation through the logarithm
 #
-# **Try it:** Predict the sign of optical-density change when intensity is below its reference.
+# **Independent exercise:** Predict the sign of optical-density change when intensity is below its reference.
 
 # %%
 vis_ratio=np.linspace(.2,2,200)
@@ -182,7 +219,7 @@ plt.show()
 #
 # Convert three intensity ratios to optical density and predict the sign.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -207,7 +244,7 @@ print(pd.DataFrame({'Intensity ratio':demo_ratio,'Delta optical density':-np.log
 #
 # Solve a known two-component mixture using arbitrary coefficients.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -236,7 +273,7 @@ assert np.allclose(demo_recovered,demo_concentration)
 #
 # Solve the same optical-density observation using two assumed path lengths.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -261,7 +298,7 @@ for assumed_length in [1.,2.]:
 #
 # Compare sample counts for a 0.8 s electrical-response interval and a 20 s hemodynamic interval at their respective illustrative sampling rates.
 #
-# **Try it on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
+# **Independent exercise on paper:** predict the output’s shape, sign or approximate value. State which assumption makes your prediction valid.
 #
 # **My prediction:** _write here._
 #
@@ -287,7 +324,7 @@ print('Observation durations:',.8,'s versus',20,'s')
 #
 # Implement optical_density_change for strictly positive intensity and reference values.
 #
-# **Try it:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
+# **Independent exercise:** complete the function below before reading its solution. The template deliberately returns None so that an unfinished attempt does not interrupt the rest of the lesson.
 
 # %%
 def optical_density_change(intensity, reference):
@@ -406,7 +443,7 @@ haemo.filter(0.05, 0.7, h_trans_bandwidth=0.2, l_trans_bandwidth=0.02)
 # %% [markdown]
 # ## Practice 2 · Inspect the coupling decision
 #
-# **Try it:** Display channels with the lowest scalp coupling scores and count those marked bad.
+# **Independent exercise:** Display channels with the lowest scalp coupling scores and count those marked bad.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -436,7 +473,7 @@ print('Marked bad:',lab_quality.marked_bad.sum(),'of',len(lab_quality))
 # %% [markdown]
 # ## Practice 3 · Predict pathlength sensitivity by hand
 #
-# **Try it:** If the assumed pathlength factor doubles with the same measured optical-density changes, what happens to inferred concentration amplitudes?
+# **Independent exercise:** If the assumed pathlength factor doubles with the same measured optical-density changes, what happens to inferred concentration amplitudes?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -509,7 +546,7 @@ plt.show()
 # %% [markdown]
 # ## Practice 4 · Compare HbO and HbR with their units intact
 #
-# **Try it:** Plot mean HbO and HbR for the left-tapping condition. Avoid forcing them to have opposite signs.
+# **Independent exercise:** Plot mean HbO and HbR for the left-tapping condition. Avoid forcing them to have opposite signs.
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -543,7 +580,7 @@ ax.legend();plt.show()
 # %% [markdown]
 # ## Practice 5 · Design a slow-response decision
 #
-# **Try it:** Why would an fNIRS interface generally need a different decision window from a P300 detector?
+# **Independent exercise:** Why would an fNIRS interface generally need a different decision window from a P300 detector?
 #
 # **My reasoning / hand calculation:** _write here._
 
@@ -561,9 +598,31 @@ ax.legend();plt.show()
 # Hemodynamic changes unfold over seconds and may overlap between task blocks. A short P300-style window can miss much of that response. A proposed fNIRS decoder needs a suitable baseline, long enough evidence interval, grouped evaluation and explicit latency accounting.
 
 # %% [markdown]
+# ## Recorded-signal inspection with MNE-Python
+#
+# The following visualization uses the recording analysed in this notebook. The API retains channel names, sample timing and physical units. This is descriptive inspection; it does not authorize selecting parameters on held-out labels.
+
+# %%
+# Average recorded haemoglobin epochs and use the native MNE evoked display.
+recorded_evoked = epochs.average(picks='hbo')
+recorded_evoked.plot(spatial_colors=False, show=False)
+plt.show()
+
+# %% [markdown]
+# ### Figure interpretation and independent exercise
+#
+# This panel displays haemodynamic concentration changes rather than EEG. Read the concentration and time units from the axes. Channel differences can reflect task response, contact quality or systemic physiology. They do not alone establish an independently validated BCI.
+#
+# **Exercise.** Identify the measurement unit, the observation represented by each trace or image row, and one conclusion that the figure cannot support. Explain how the answer changes if the signal has already been filtered.
+#
+# **Reference interpretation.** The displayed observations are processed sensor measurements, not independent participants. Filtering changes the measured bandwidth and temporal structure. The plot supports quality assessment and descriptive comparisons; it does not establish causal neural mechanisms, source location or out-of-sample classification performance.
+#
+# The display pools the retained conditions and is intended to demonstrate measurement scale and between-channel variation. Use the condition-specific analyses above for tapping-versus-control comparisons.
+
+# %% [markdown]
 # ## Practice 6 · explain the complete method
 #
-# Without looking back, explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
+# Independently explain the measurement, transformation, feature or summary, and the evaluation boundary. Include one failure mode and one claim the result does not establish.
 #
 # **My explanation:** _write here._
 
@@ -595,3 +654,14 @@ ax.legend();plt.show()
 # [MNE fNIRS processing](https://mne.tools/stable/auto_tutorials/preprocessing/70_fnirs_processing.html).
 #
 # Record package versions, subject/run IDs, preprocessing, split unit, random seed, and all exclusions with your results. Do not interpret a single participant as a population estimate.
+
+# %% [markdown]
+# ## References and further reading
+#
+# 1. [Gramfort et al. (2013), MEG and EEG data analysis with MNE-Python](https://doi.org/10.3389/fnins.2013.00267). Core data structures and reproducible electrophysiological analysis.
+# 2. [MNE motor fNIRS acquisition and analysis tutorial](https://mne.tools/stable/auto_tutorials/preprocessing/70_fnirs_processing.html). Acquisition provenance, task definition and dataset-specific interpretation.
+# 3. [MNE-Python API reference](https://mne.tools/stable/python_reference.html). Consult the documented units, defaults and return values of each method.
+# 4. [MNE overview tutorial](https://mne.tools/stable/auto_tutorials/intro/10_overview.html). Relationship between continuous data, epochs and evoked responses.
+# 5. [MNE documentation on in-place modification](https://mne.tools/stable/auto_tutorials/intro/15_inplace.html). Object copying and preservation of analysis branches.
+#
+# These references support the acquisition and software descriptions. Numerical outcomes in this notebook refer only to the explicitly selected data and evaluation design; they are not population performance estimates. Dataset terms remain separate from the licence of these teaching materials.
