@@ -49,3 +49,10 @@ The execution script downloads real data and can take several minutes per new da
 | 13_neural_networks_autoencoders.ipynb | passed |
 | 14_online_replay.ipynb | passed |
 | 15_capstone_reproducible_bci.ipynb | passed |
+| 16_pytorch_tensors_first_network.ipynb | pending real-data execution |
+| 17_pytorch_training_cnn.ipynb | pending real-data execution |
+| 18_pytorch_autoencoder.ipynb | pending real-data execution |
+
+## PyTorch track (notebooks 16–18), added 2026-11-09
+
+The three PyTorch lessons pass `check_notebooks.py` and the dataset-free `check_exercise_answers.py`. They have **not yet been executed against the real EEGBCI recordings**: PhysioNet was unreachable from the authoring environment. Their code was instead run top to bottom (PyTorch 2.15.0, MNE 1.13.2, CPU) with a synthetic stand-in that mimics EEGBCI file layout, channel names, sampling rate and annotations. That run checks shapes, training loops, checkpoint save/load and figures only; its scores say nothing about EEG. The notebooks are committed without outputs. To complete validation, run `python scripts/execute_notebooks.py --only 16 17 18` where PhysioNet is reachable and update this table.

@@ -185,5 +185,38 @@
     "mathematical_review": true,
     "references": true,
     "inline_exercises_and_answers": true
+  },
+  {
+    "notebook": "16_pytorch_tensors_first_network.ipynb",
+    "cells": 110,
+    "markdown_words": 3941,
+    "saved_figures": 0,
+    "paradigm_background": true,
+    "experimental_context": true,
+    "mathematical_review": true,
+    "references": true,
+    "inline_exercises_and_answers": true
+  },
+  {
+    "notebook": "17_pytorch_training_cnn.ipynb",
+    "cells": 124,
+    "markdown_words": 4392,
+    "saved_figures": 0,
+    "paradigm_background": true,
+    "experimental_context": true,
+    "mathematical_review": true,
+    "references": true,
+    "inline_exercises_and_answers": true
+  },
+  {
+    "notebook": "18_pytorch_autoencoder.ipynb",
+    "cells": 88,
+    "markdown_words": 3503,
+    "saved_figures": 0,
+    "paradigm_background": true,
+    "experimental_context": true,
+    "mathematical_review": true,
+    "references": true,
+    "inline_exercises_and_answers": true
   }
 ]

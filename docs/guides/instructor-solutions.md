@@ -20,5 +20,8 @@ In class, pause before each Worked solution heading. Ask students to predict a s
 - [13 · Neural networks and autoencoders for EEG](../../notebooks/13_neural_networks_autoencoders.ipynb): four guided practices and Practices 1–6 with inline answers.
 - [14 · From offline analysis to causal replay](../../notebooks/14_online_replay.ipynb): four guided practices and Practices 1–6 with inline answers.
 - [15 · Capstone: a reproducible BCI experiment](../../notebooks/15_capstone_reproducible_bci.ipynb): four guided practices and Practices 1–6 with inline answers.
+- [16 · Deep learning with PyTorch I: tensors and a first network](../../notebooks/16_pytorch_tensors_first_network.ipynb): four guided practices and Practices 1–6 with inline answers.
+- [17 · Deep learning with PyTorch II: training and a CNN for EEG](../../notebooks/17_pytorch_training_cnn.ipynb): four guided practices and Practices 1–6 with inline answers.
+- [18 · Deep learning with PyTorch III: convolutional autoencoders](../../notebooks/18_pytorch_autoencoder.ipynb): four guided practices and Practices 1–6 with inline answers; Practice 2 is the build-it-yourself autoencoder exercise.
 
 The numerical checker runs the embedded guided examples and Practice 1 reference checks without downloading datasets. The full notebook execution also checks the applied real-data solutions. Conceptual answers are worked explanations, not claims that an automatic test can grade scientific reasoning.

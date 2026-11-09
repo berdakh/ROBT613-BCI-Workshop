@@ -1,6 +1,6 @@
 # Brain–Computer Interfaces — a hands-on course
 
-**ROBT613 · MNE-Python · 17 self-contained notebooks · Google Colab or local CPU**
+**ROBT613 · MNE-Python · 20 self-contained notebooks · Google Colab or local CPU**
 
 Start with a P300 speller, learn how EEG becomes a feature vector, and build motor-imagery and SSVEP decoders. Extend the workflow to auditory/visual responses, fNIRS, neural networks and causal replay. Each notebook contains the teaching explanations, equations, visualizations, hands-on exercises and worked answers needed to study the method independently.
 
@@ -12,7 +12,7 @@ Every notebook includes paradigm background, an experimental setup and acquisiti
 
 ## Self-study notebooks
 
-The **notebook is the complete lesson and workbook**. Students do not need an external answer guide. The sixteen paradigm and methods lessons follow this sequence; the additional MNE architecture tutorial has its own introductory exercises:
+The **notebook is the complete lesson and workbook**. Students do not need an external answer guide. The nineteen paradigm, methods and PyTorch lessons follow this sequence; the additional MNE architecture tutorial has its own introductory exercises:
 
 1. A visual map of the full pipeline and a symbol guide.
 2. Equations derived through a numerical calculation that can be done on paper.
@@ -22,7 +22,7 @@ The **notebook is the complete lesson and workbook**. Students do not need an ex
 6. Six practice tasks placed beside the relevant method, each with a hint and a worked answer in the notebook. Computational tasks include executable solutions and numerical checks where appropriate.
 7. A worked exit response, troubleshooting advice and a self-assessment checklist.
 
-There are **17 architecture/pipeline flowcharts and 16 concept figures**, in addition to the real-data plots and worked-example figures. Figure-generating code and saved outputs are embedded in each notebook; no external image folder or diagram renderer is needed. Blank student-attempt cells are intentional—the complete worked solutions follow them, so Run all still executes the lesson.
+There are **20 architecture/pipeline flowcharts and 19 concept figures**, in addition to the real-data plots and worked-example figures. Figure-generating code and saved outputs are embedded in each notebook; no external image folder or diagram renderer is needed. Blank student-attempt cells are intentional—the complete worked solutions follow them, so Run all still executes the lesson.
 
 Use the notebooks one cell at a time in class, pausing at each **Independent exercise** question. For independent study, attempt the calculation before continuing to its solution. The [instructor guide](docs/guides/instructors.md) offers pacing suggestions but is not required to solve the exercises.
 
@@ -64,8 +64,13 @@ Open notebook **00** for the environment, **00a** for MNE-Python’s scientific 
 | 13 | [Neural networks and autoencoders for EEG](notebooks/13_neural_networks_autoencoders.ipynb) | 120–180 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/13_neural_networks_autoencoders.ipynb) |
 | 14 | [From offline analysis to causal replay](notebooks/14_online_replay.ipynb) | 90–120 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/14_online_replay.ipynb) |
 | 15 | [Capstone: a reproducible BCI experiment](notebooks/15_capstone_reproducible_bci.ipynb) | 6–12 hours | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/15_capstone_reproducible_bci.ipynb) |
+| 16 | [Deep learning with PyTorch I: tensors and a first network](notebooks/16_pytorch_tensors_first_network.ipynb) | 90–120 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/16_pytorch_tensors_first_network.ipynb) |
+| 17 | [Deep learning with PyTorch II: training and a CNN for EEG](notebooks/17_pytorch_training_cnn.ipynb) | 120–150 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/17_pytorch_training_cnn.ipynb) |
+| 18 | [Deep learning with PyTorch III: convolutional autoencoders](notebooks/18_pytorch_autoencoder.ipynb) | 120–150 min | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/berdakh/ROBT613-BCI-Workshop/blob/main/notebooks/18_pytorch_autoencoder.ipynb) |
 
 **Essential pathway:** 00 → 01 → 02 → 03 → 05 → 06 → 08 → 09 → 15. Add 04 and 07 for a full signal-processing foundation. Lessons 10–14 extend paradigms and deployment concepts.
+
+**PyTorch track (optional):** 16 → 17 → 18 teaches deep learning from tensors to training loops, EEG CNNs, checkpoints and autoencoders, using EEGBCI motor imagery. Take it after 06 and 09. Lesson 13 remains a compact one-notebook overview of the same ideas.
 
 ## Local setup
 

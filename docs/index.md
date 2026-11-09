@@ -25,3 +25,7 @@ Every notebook includes its own worked exercise answers, pipeline map, equations
 ## MNE-Python foundations
 
 Begin with the [software design and data-model tutorial](../notebooks/00a_mne_python_foundations.ipynb) for acquisition metadata, physical units, object transformations and reproducible derivatives. All lessons now include an academic paradigm review, acquisition context, mathematical definitions and references.
+
+## Deep learning with PyTorch
+
+An optional three-lesson track adapts the classic PyTorch MNIST tutorials to EEG: [tensors and a first network](../notebooks/16_pytorch_tensors_first_network.ipynb), [training and an EEG CNN](../notebooks/17_pytorch_training_cnn.ipynb), and [convolutional autoencoders](../notebooks/18_pytorch_autoencoder.ipynb).

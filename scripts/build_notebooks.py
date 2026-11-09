@@ -28,7 +28,12 @@ def source_cells(path):
     return cells
 
 if __name__ == '__main__':
+    import sys
+    # Optional lesson numbers (e.g. `16 17`) rebuild only those notebooks and keep other saved outputs.
+    only = sys.argv[1:]
     for source in sorted((ROOT/'notebook_src').glob('*.py')):
+        if only and source.stem[:2] not in only:
+            continue
         nb=nbformat.v4.new_notebook(cells=source_cells(source),metadata={
             'kernelspec':{'display_name':'Python 3','language':'python','name':'python3'},
             'language_info':{'name':'python'},

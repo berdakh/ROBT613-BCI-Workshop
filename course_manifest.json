@@ -117,5 +117,26 @@
     "goal": "Complete a baseline experiment and produce an auditable result table, then extend one paradigm with a predeclared hypothesis.",
     "time": "6\u201312 hours",
     "data": "Competition IV 2a baseline; student-selected extension"
+  },
+  {
+    "slug": "16_pytorch_tensors_first_network",
+    "title": "16 \u00b7 Deep learning with PyTorch I: tensors and a first network for EEG",
+    "goal": "Represent EEG epochs and band-power features as tensors, build a fully connected nn.Module, and pass real trials through it before training.",
+    "time": "90\u2013120 min",
+    "data": "EEGBCI subjects 1\u20135, imagery runs 4/8/12; PyTorch"
+  },
+  {
+    "slug": "17_pytorch_training_cnn",
+    "title": "17 \u00b7 Deep learning with PyTorch II: training networks and a CNN for EEG",
+    "goal": "Train with autograd and mini-batches, select checkpoints on a validation run, train a temporal\u2013spatial CNN on raw epochs, test once and save a checkpoint.",
+    "time": "120\u2013150 min",
+    "data": "EEGBCI subjects 1\u20135, runs 4 (train) / 8 (validation) / 12 (test); PyTorch"
+  },
+  {
+    "slug": "18_pytorch_autoencoder",
+    "title": "18 \u00b7 Deep learning with PyTorch III: convolutional autoencoders for EEG",
+    "goal": "Build a strided convolutional autoencoder, compare it with a same-size PCA baseline, and probe whether the code carries motor-imagery information.",
+    "time": "120\u2013150 min",
+    "data": "EEGBCI subjects 1\u20135, runs 4 (train) / 8 (validation) / 12 (test); PyTorch"
   }
 ]
