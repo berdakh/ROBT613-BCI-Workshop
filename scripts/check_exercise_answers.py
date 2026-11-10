@@ -17,6 +17,7 @@ from sklearn.metrics import balanced_accuracy_score
 import nbformat
 
 root = Path(__file__).resolve().parents[1]
+passed = 0
 for path in sorted((root / 'notebooks').glob('*.ipynb')):
     if path.stem == '00a_mne_python_foundations':
         continue  # MNE-dependent exercises are verified by full notebook execution.
@@ -40,4 +41,5 @@ for path in sorted((root / 'notebooks').glob('*.ipynb')):
     assert checks == 1, (path.name, checks)
     plt.close('all')
     print('PASS', path.name)
-print('All 16 dataset-free embedded reference checks passed; the MNE introduction is checked by full execution.')
+    passed += 1
+print(f'All {passed} dataset-free embedded reference checks passed; the MNE introduction is checked by full execution.')
