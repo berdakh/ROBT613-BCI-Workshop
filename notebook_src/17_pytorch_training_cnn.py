@@ -680,7 +680,7 @@ plot_history(mlp_history, 'Band-power network')
 # %% [markdown]
 # ### Inspect and interpret
 #
-# Training loss falls steadily. Validation loss falls less, levels off or rises: the gap is the part of learning that did not transfer from run 4 to run 8. The dashed line marks the kept checkpoint, which need not be the last epoch.
+# Training loss falls, noisily because each epoch has only a few small, dropout-perturbed batches. Validation loss falls more slowly and stays above it; the gap is the part of learning that did not transfer from run 4 to run 8. The dashed line marks the kept checkpoint. If validation loss is still falling at the last epoch, the kept checkpoint is the last epoch and the epoch limit, not early stopping, ended training; if it levels off or rises, an earlier epoch is kept.
 
 # %% [markdown]
 # ## Practice 3 · Compare with a linear baseline on validation
@@ -695,7 +695,7 @@ plot_history(mlp_history, 'Band-power network')
 # %% [markdown]
 # ### Hint
 #
-# `LinearDiscriminantAnalysis(solver='lsqr', shrinkage='auto')` handles 128 features from about 150 trials.
+# `LinearDiscriminantAnalysis(solver='lsqr', shrinkage='auto')` handles 128 features from about 75 trials.
 
 # %% [markdown]
 # ### Worked solution
@@ -711,7 +711,7 @@ print(f"Validation balanced accuracy: LDA {lda_val:.3f} | network {mlp_history.v
 # %% [markdown]
 # ### Interpret and check
 #
-# With about 150 training trials, a regularized linear model is often as good as, or better than, a network with 10,000 parameters on the same features. If the network does not win here, that is a valid result: it shows the features, not the classifier, limit performance.
+# With about 75 training trials, a regularized linear model is often as good as, or better than, a network with 10,000 parameters on the same features. Here the network may score higher on run 8, but keep in mind that run 8 also chose the network's checkpoint, so its validation score is optimistically biased while the LDA's is not. Whether the advantage is real is decided on run 12. If the network does not win, that is a valid result: it shows the features, not the classifier, limit performance.
 
 # %% [markdown]
 # ## A convolutional network on raw epochs
@@ -817,7 +817,7 @@ plot_history(cnn_history, 'EEG CNN')
 # %% [markdown]
 # ### Inspect and interpret
 #
-# The CNN has to learn its own filters from roughly 150 trials, so its curves are often noisier than the band-power network's. Compare the best validation values, not the final epoch.
+# The CNN has to learn its own filters from about 75 trials. Expect a clear sign of memorization: training loss falls towards zero while validation loss stays near ln 2 ≈ 0.69, or creeps upward, and validation accuracy hovers around chance. The network has learned run 4's individual trials, not a left/right rule that transfers to run 8. Early stopping limits the damage but cannot create information. Compare the best validation values, not the final epoch.
 
 # %% [markdown]
 # ## Test once
@@ -847,7 +847,7 @@ ax.set_title('CNN on the test run'); plt.show()
 # %% [markdown]
 # ### Inspect and interpret
 #
-# Test scores are usually lower than validation scores, because validation helped choose each checkpoint. With about 150 test trials, a difference of a few percentage points between models is within chance variation; Lesson 09 shows how to quantify that.
+# Test scores are usually lower than validation scores, because validation helped choose each checkpoint. Here the drop can be large: an advantage that looked clear on run 8 may shrink to almost nothing on run 12. With about 75 test trials, a difference of several percentage points between models is within chance variation; Practice 5 and Lesson 09 show how to quantify that.
 
 # %% [markdown]
 # ## Practice 5 · How far from chance is the test score?
@@ -877,6 +877,8 @@ print(results['test (run 12)'] > chance_upper)
 
 # %% [markdown]
 # ### Interpret and check
+#
+# With five participants pooled, few trials per run and no per-participant calibration, it is common for none of the models to clear this band on run 12. That is a legitimate finding: on this data the test run does not show above-chance decoding, whatever the validation scores suggested. Lessons 06 and 08 decode single participants, where motor-imagery effects are easier to detect.
 #
 # This normal approximation ignores that trials from the same participant are correlated, so the real chance band is somewhat wider. A permutation test (Lesson 09) avoids the approximation.
 
@@ -948,7 +950,7 @@ plt.show()
 #
 # **Exercise.** State one reason these weights could look noisy even if the model decodes well, and one claim the maps cannot support.
 #
-# **Reference interpretation.** With 150 training trials and many parameters, weights on uninformative channels are poorly constrained, and filters can cancel noise rather than point to sources. The maps cannot localize the neural generators of motor imagery; that would require patterns (forward models) and source analysis, which this course does not cover.
+# **Reference interpretation.** With about 75 training trials and many parameters, weights on uninformative channels are poorly constrained, and filters can cancel noise rather than point to sources. The maps cannot localize the neural generators of motor imagery; that would require patterns (forward models) and source analysis, which this course does not cover.
 
 # %% [markdown]
 # ## Practice 6 · explain the complete method

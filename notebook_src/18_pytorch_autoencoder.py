@@ -168,7 +168,7 @@ plt.show()
 #
 # ### What reconstruction error does and does not measure
 #
-# On channel-standardized data, predicting zeros everywhere gives an MSE of about 1, the average variance. Any useful model must do better. A fairer comparison is a linear method that keeps the same number of values per epoch. Here, four spatial principal components at every time sample keep exactly 960 values. If the autoencoder cannot beat that, its nonlinearity is not earning its parameters.
+# On channel-standardized data, predicting zeros everywhere gives an MSE of about 1, the average variance (somewhat more on runs 8 and 12, whose scaling came from run 4). Any useful model must do better. A fairer comparison is a linear method that keeps the same number of values per epoch. Here, four spatial principal components at every time sample keep exactly 960 values. If the autoencoder cannot beat that, its nonlinearity is not earning its parameters.
 
 # %% [markdown]
 # ## Visual intuition · Stride halves the time axis
@@ -565,7 +565,7 @@ ax.legend(); plt.show()
 # %% [markdown]
 # ### Inspect and interpret
 #
-# Both curves should fall well below 1. Validation MSE is usually higher than training MSE because run 8 is a different recording block, and its channel scaling came from run 4. The reconstructions above typically capture the slower, larger oscillations before the fast detail.
+# Both curves should fall well below 1. Do not be surprised if the validation curve lies below the training curve. The training value is averaged over the epoch in training mode, with dropout active and weights still changing, which inflates it (Practice 5 measures the dropout effect); the validation value is computed afterwards in evaluation mode. A gap in the other direction, validation clearly above training, would point to memorization of run 4 or to a shift between recording blocks. The reconstructions above typically capture the slower, larger oscillations better than the fast detail.
 
 # %% [markdown]
 # ## Practice 3 · Is the autoencoder better than a linear code of the same size?
@@ -606,7 +606,7 @@ print(baselines.T)
 # %% [markdown]
 # ### Interpret and check
 #
-# Report all three numbers. If the autoencoder is not clearly below the PCA line, its extra parameters bought nothing for reconstruction. The test-run row is computed once, after the checkpoint was fixed on run 8.
+# Report all three numbers. Both codes remove most of the variance the zero predictor leaves, and the autoencoder is expected to be at best slightly below the PCA line. A small margin means that a linear spatial projection already captures most of what the nonlinear network learned: tens of thousands of parameters bought only a modest reconstruction gain over four fixed spatial components. If the autoencoder is not below the PCA line at all, its extra parameters bought nothing for reconstruction. The test-run row is computed once, after the checkpoint was fixed on run 8.
 
 # %% [markdown]
 # ## Encoding trials
@@ -676,7 +676,7 @@ print(probe)
 # %% [markdown]
 # ### Interpret and check
 #
-# The autoencoder was trained to reconstruct, not to separate classes. If its 16 maps decode worse than all 64 channels, the compression discarded task information that MSE did not reward. That is the expected risk of an unsupervised code, not a failure of the code. Compare validation rows to choose; read the test row once.
+# The autoencoder was trained to reconstruct, not to separate classes. If its 16 maps decode worse than all 64 channels, the compression discarded task information that MSE did not reward. That is the expected risk of an unsupervised code, not a failure of the code. The PCA row makes the same point more sharply: the 16 highest-variance spatial components can decode at or even below chance, because the largest-variance directions of the EEG are not the ones that change with left versus right imagery. None of these scores is high; with pooled participants and about 75 trials per run, differences of several points are within chance variation (Lesson 17, Practice 5). Compare validation rows to choose; read the test row once.
 
 # %% [markdown]
 # ## Practice 5 · Train mode versus evaluation mode
@@ -732,7 +732,7 @@ ax.legend(); plt.show()
 # %% [markdown]
 # ### Figure interpretation and independent exercise
 #
-# Where the two curves overlap, the code preserved that frequency range; where the reconstructed curve falls below, it was lost.
+# Where the two curves overlap, the code preserved that frequency range; where the reconstructed curve falls below, power was lost. Expect the reconstruction to lie below the recording at every frequency, since the code keeps only part of the variance, and the gap to widen above about 13 Hz: the stride-2 encoder keeps slow structure more easily than fast detail, so beta-band power is attenuated more than theta and mu power.
 #
 # **Exercise.** If the reconstruction keeps 4–12 Hz but loses 15–30 Hz, what does that imply for decoding beta desynchronization from the code? Name one claim the figure cannot support.
 #

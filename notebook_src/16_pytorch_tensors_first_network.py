@@ -292,7 +292,7 @@ print('Per layer:',demo_counts,'| total:',sum(demo_counts))
 # %% [markdown]
 # ### Why this result makes sense
 #
-# The network has 10,402 parameters, while the training run below has only about 150 trials. A model with far more parameters than trials can memorize its training data, which is why Lesson 17 needs a separate validation run.
+# The network has 10,402 parameters, while the training run below has only about 75 trials (five participants × about 15 per class). A model with far more parameters than trials can memorize its training data, which is why Lesson 17 needs a separate validation run.
 #
 # **Check your understanding:** halve the first hidden layer and recount.
 
@@ -787,7 +787,7 @@ plt.show()
 # %% [markdown]
 # ### Figure interpretation and independent exercise
 #
-# Spectra are averaged over training trials from five participants. A class difference at C3 or C4 in the shaded bands is what the network could learn to use. The figure is descriptive: it does not show that the difference is significant or that it will transfer to run 12.
+# Spectra are averaged over training trials from five participants. A class difference at C3 or C4 in the shaded bands is what the network could learn to use. In this pooled average the four curves nearly overlap: any class difference is small compared with the variation across frequencies, a first sign that decoding will be hard. The figure is descriptive: it does not show that the difference is significant or that it will transfer to run 12.
 #
 # **Exercise.** Name the unit of the vertical axis, and say why averaging across participants could hide a lateralized ERD.
 #
