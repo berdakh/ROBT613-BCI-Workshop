@@ -23,7 +23,7 @@
 #
 # ### Acquisition provenance and instructional protocol
 #
-# PhysioNet EEGBCI: 64 scalp channels, 160 Hz, recorded with BCI2000. Runs 4, 8 and 12 contain cued imagery of the left or right fist (annotations T1 and T2), about 15 trials of each class per run. The original database also contains executed movements and other imagery tasks.
+# PhysioNet EEGBCI: 64 scalp channels, 160 Hz, recorded with BCI2000. Runs 4, 8 and 12 contain cued imagery of the left or right fist (annotations T1 and T2), about 15 trials per participant per run, roughly half of each class. The original database also contains executed movements and other imagery tasks.
 #
 # **Acquisition reference:** [PhysioNet EEG Motor Movement/Imagery Dataset](https://physionet.org/content/eegmmidb/1.0.0/).
 #
@@ -292,7 +292,7 @@ print('Per layer:',demo_counts,'| total:',sum(demo_counts))
 # %% [markdown]
 # ### Why this result makes sense
 #
-# The network has 10,402 parameters, while the training run below has only about 150 trials. A model with far more parameters than trials can memorize its training data, which is why Lesson 17 needs a separate validation run.
+# The network has 10,402 parameters, while the training run below has only about 75 trials (five participants × about 15 trials each). A model with far more parameters than trials can memorize its training data, which is why Lesson 17 needs a separate validation run.
 #
 # **Check your understanding:** halve the first hidden layer and recount.
 
@@ -399,7 +399,7 @@ print(pd.crosstab(run_ids, y, rownames=['run'], colnames=['class 0 = left, 1 = r
 # %% [markdown]
 # ### Inspect and interpret
 #
-# There are roughly 15 trials per class per run per subject. The array is float64 because MNE stores volts in double precision. Rows are trials; never shuffle `X` without shuffling `y`, `subject_ids` and `run_ids` the same way.
+# Each participant contributes about 15 trials per run, so each run has about 75 trials, roughly 37 per class. The array is float64 because MNE stores volts in double precision. Rows are trials; never shuffle `X` without shuffling `y`, `subject_ids` and `run_ids` the same way.
 
 # %% [markdown]
 # ## PyTorch tensors with EEG
@@ -787,7 +787,7 @@ plt.show()
 # %% [markdown]
 # ### Figure interpretation and independent exercise
 #
-# Spectra are averaged over training trials from five participants. A class difference at C3 or C4 in the shaded bands is what the network could learn to use. The figure is descriptive: it does not show that the difference is significant or that it will transfer to run 12.
+# Spectra are averaged over training trials from five participants. A class difference at C3 or C4 in the shaded bands is what the network could learn to use. In this pooled average the four curves nearly overlap: any class difference is small compared with the variation across frequencies, a first sign that decoding will be hard. The figure is descriptive: it does not show that the difference is significant or that it will transfer to run 12.
 #
 # **Exercise.** Name the unit of the vertical axis, and say why averaging across participants could hide a lateralized ERD.
 #

@@ -49,10 +49,21 @@ The execution script downloads real data and can take several minutes per new da
 | 13_neural_networks_autoencoders.ipynb | passed |
 | 14_online_replay.ipynb | passed |
 | 15_capstone_reproducible_bci.ipynb | passed |
-| 16_pytorch_tensors_first_network.ipynb | pending real-data execution |
-| 17_pytorch_training_cnn.ipynb | pending real-data execution |
-| 18_pytorch_autoencoder.ipynb | pending real-data execution |
+| 16_pytorch_tensors_first_network.ipynb | passed |
+| 17_pytorch_training_cnn.ipynb | passed |
+| 18_pytorch_autoencoder.ipynb | passed |
 
-## PyTorch track (notebooks 16–18), added 2026-11-09
+## PyTorch track (notebooks 16–18)
 
-The three PyTorch lessons pass `check_notebooks.py` and the dataset-free `check_exercise_answers.py`. They have **not yet been executed against the real EEGBCI recordings**: PhysioNet was unreachable from the authoring environment. Their code was instead run top to bottom (PyTorch 2.15.0, MNE 1.13.2, CPU) with a synthetic stand-in that mimics EEGBCI file layout, channel names, sampling rate and annotations. That run checks shapes, training loops, checkpoint save/load and figures only; its scores say nothing about EEG. The notebooks are committed without outputs. To complete validation, run `python scripts/execute_notebooks.py --only 16 17 18` where PhysioNet is reachable and update this table.
+Added on 2026-11-09. The authoring environment could not reach PhysioNet, so the lessons were first run only on a synthetic stand-in that checked shapes, training loops, checkpoint save/load and figures.
+
+**Real-data execution, 2026-11-10.** All three notebooks were executed top to bottom with `python scripts/execute_notebooks.py --only 16 17 18` on the real PhysioNet EEGBCI recordings (subjects 1–5, runs 4/8/12; 75 trials per run after epoching), in a CPU-only Linux environment (4-core Intel Xeon @ 2.10 GHz, no GPU) with Python 3.13, PyTorch 2.15.0, MNE 1.13.2, NumPy 2.5.3 and scikit-learn 1.9.1. Each notebook ran in under 35 s once the data were cached, and a second run reproduced the same scores. The 18 saved figures (4, 6 and 8) were visually inspected for labels, units and readability.
+
+The interpretive text was written before real scores existed and was revised against the outputs:
+
+- Run 4 has about 75 trials, not about 150 as first stated; trial counts in notebooks 16 and 17 were corrected.
+- Notebook 16: the pooled training-run spectra show only small class differences at C3/C4, and the text now says so.
+- Notebook 17: the band-power network's validation loss was still falling at the epoch limit, so its kept checkpoint is the last epoch; the text now covers that case. The network scored higher than shrinkage LDA on run 8, and the text now notes that this comparison is biased in the network's favour because run 8 chose its checkpoint. The CNN memorized run 4 (training loss near zero, validation loss near ln 2, validation accuracy near chance), and its interpretation now describes memorization instead of “noisier curves”. On run 12 no model exceeded the 95 % chance band; the text states that this is a common and legitimate outcome for pooled participants with few trials.
+- Notebook 18: validation MSE lies below training MSE because the training value is averaged in training mode with dropout active; the interpretation now explains this. The autoencoder reconstructs only slightly better than a four-component spatial PCA of the same size, and the text now says what a small margin means. In the probe, 16 spatial PCA components decoded at or below chance, the autoencoder code above them, and all 64 channels best; the interpretation now uses the PCA row to illustrate that high-variance directions need not carry task information. The reconstructed spectrum lies below the recording at all frequencies with a wider gap in the beta band, and the figure text now says so.
+
+Exact scores depend on library versions and hardware and are read from the saved outputs, not hard-coded in the text.

@@ -83,5 +83,20 @@
     "notebook": "15_capstone_reproducible_bci.ipynb",
     "status": "passed",
     "seconds": 10.8
+  },
+  {
+    "notebook": "16_pytorch_tensors_first_network.ipynb",
+    "status": "passed",
+    "seconds": 10.7
+  },
+  {
+    "notebook": "17_pytorch_training_cnn.ipynb",
+    "status": "passed",
+    "seconds": 22.6
+  },
+  {
+    "notebook": "18_pytorch_autoencoder.ipynb",
+    "status": "passed",
+    "seconds": 16.0
   }
 ]
