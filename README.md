@@ -4,7 +4,7 @@
 
 Start with a P300 speller, learn how EEG becomes a feature vector, and build motor-imagery and SSVEP decoders. Extend the workflow to auditory/visual responses, fNIRS, neural networks and causal replay. Each notebook contains the teaching explanations, equations, visualizations, hands-on exercises and worked answers needed to study the method independently.
 
-The teaching sequence draws on [ROBT613](https://github.com/berdakh/ROBT613), the [Brussels MNE workshop](https://github.com/berdakh/mne-workshops/tree/master/2017_03_Brussels), and the sensor-level sections of the [Brown MNE workshop](https://github.com/berdakh/mne-workshop-brown), with original BCI lessons aligned to the supplied syllabus. This is a modular course, not a four-day schedule. Plan roughly **35–45 guided hours, 15–25 hours of independent practice, and a 6–12 hour capstone**, adjusted for student background and dataset downloads.
+The teaching sequence draws on the [Brussels MNE workshop](https://github.com/berdakh/mne-workshops/tree/master/2017_03_Brussels), and the sensor-level sections of the [Brown MNE workshop](https://github.com/berdakh/mne-workshop-brown), with original BCI lessons aligned to the supplied syllabus. This is a modular course, not a four-day schedule. Plan roughly **35–45 guided hours, 15–25 hours of independent practice, and a 6–12 hour capstone**, adjusted for student background and dataset downloads.
 
 ## Academic revision
 
